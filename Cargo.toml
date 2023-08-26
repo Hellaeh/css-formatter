@@ -1,0 +1,7 @@
+[package]
+name = "hel-css-formatter"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+hel-trie = { path = "../../crates/trees/trie" }
