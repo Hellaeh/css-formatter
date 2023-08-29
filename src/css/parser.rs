@@ -1,6 +1,6 @@
 use crate::utils::Helper;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Token<'a> {
 	Comment(&'a [u8]),
 
@@ -44,12 +44,17 @@ pub enum Error {
 pub struct Parser<'a> {
 	buf: &'a [u8],
 	// Current position (index)
-	pos: std::cell::UnsafeCell<usize>,
+	pos: usize,
 	// For `peek`ing
-	cache: std::cell::UnsafeCell<Option<Token<'a>>>,
+	cache: Option<Token<'a>>,
 }
 
 impl<'a> Parser<'a> {
+	#[inline(always)]
+	pub fn advance(&mut self, amount: usize) {
+		self.pos += amount
+	}
+
 	#[inline(always)]
 	pub fn is_eof(&self) -> bool {
 		self.pos() >= self.buf.len()
@@ -57,54 +62,17 @@ impl<'a> Parser<'a> {
 
 	#[inline]
 	pub fn new(input: &'a [u8]) -> Self {
-		use std::cell::UnsafeCell;
-
 		Self {
 			buf: input,
-			pos: UnsafeCell::new(0),
-			cache: UnsafeCell::new(None),
-		}
-	}
-
-	#[inline(always)]
-	fn cache(&self) -> Option<Token> {
-		unsafe { *self.cache.get() }
-	}
-
-	fn cache_clear(&self) -> Option<Token> {
-		unsafe { (*self.cache.get()).take() }
-	}
-
-	fn cache_set(&'a self, value: Token<'a>) -> Option<Token> {
-		unsafe { (*self.cache.get()).replace(value) }
-	}
-
-	#[inline(always)]
-	pub fn advance(&self, amount: usize) {
-		unsafe { *self.pos.get() += amount }
-	}
-
-	#[inline(always)]
-	pub fn pos(&self) -> usize {
-		unsafe { *self.pos.get() }
-	}
-
-	#[inline(always)]
-	pub fn peek_next(&'a self) -> Result<Token, Error> {
-		match self.cache() {
-			Some(token) => Ok(token),
-			None => {
-				let token = self.next()?;
-				self.cache_set(token);
-				self.peek_next()
-			}
+			pos: 0,
+			cache: None,
 		}
 	}
 
 	#[inline]
-	pub fn next(&'a self) -> Result<Token<'a>, Error> {
-		if let Some(token) = self.cache_clear() {
-			return Ok(token);
+	pub fn next(&mut self) -> Result<Token<'a>, Error> {
+		if self.cache.is_some() {
+			return Ok(self.cache.take().unwrap());
 		}
 
 		let bytes = self.buf;
@@ -150,6 +118,7 @@ impl<'a> Parser<'a> {
 
 			// String token
 			quote_type @ (b'\'' | b'"') => {
+				// Step over opening quote
 				self.advance(1);
 				self.parse_string(bytes, quote_type)?
 			}
@@ -220,7 +189,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_comment(&self, bytes: &'a [u8]) -> Result<Token, Error> {
+	fn parse_comment(&mut self, bytes: &'a [u8]) -> Result<Token<'a>, Error> {
 		// Step over comment opening seq `/*`
 		self.advance(2);
 
@@ -251,7 +220,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_name(&self, bytes: &'a [u8], opening: &u8) -> Token {
+	fn parse_name(&mut self, bytes: &'a [u8], opening: &u8) -> Token<'a> {
 		let start = self.pos();
 
 		let mut is_function = false;
@@ -283,7 +252,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_number(&self, bytes: &'a [u8]) -> Result<Token, Error> {
+	fn parse_number(&mut self, bytes: &'a [u8]) -> Result<Token<'a>, Error> {
 		let start = self.pos();
 
 		let mut cur = unsafe { bytes.get_unchecked(self.pos()) };
@@ -314,13 +283,12 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_string(&self, bytes: &'a [u8], quote: &u8) -> Result<Token, Error> {
+	fn parse_string(&mut self, bytes: &'a [u8], quote: &u8) -> Result<Token<'a>, Error> {
 		// [`BadString`] instead of [`String`] in case EOF found
 		let mut token = Token::BadString;
 
 		let start = self.pos();
 
-		// Step over opening quote
 		while !self.is_eof() {
 			let cur = unsafe { bytes.get_unchecked(self.pos()) };
 
@@ -347,8 +315,25 @@ impl<'a> Parser<'a> {
 		Ok(token)
 	}
 
+	#[inline(always)]
+	pub fn peek_next(&mut self) -> Result<Token, Error> {
+		match self.cache {
+			Some(token) => Ok(token),
+			None => {
+				let token = self.next()?;
+				self.cache.replace(token);
+				self.peek_next()
+			}
+		}
+	}
+
+	#[inline(always)]
+	pub fn pos(&self) -> usize {
+		self.pos
+	}
+
 	#[inline]
-	fn process_whitespace(&self, bytes: &'a [u8]) -> Token {
+	fn process_whitespace(&mut self, bytes: &'a [u8]) -> Token<'a> {
 		// Step over once
 		self.advance(1);
 
@@ -367,4 +352,37 @@ impl<'a> Parser<'a> {
 	}
 
 	// #[inline]
+}
+
+impl<'a> std::fmt::Debug for Token<'a> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		use std::str::from_utf8_unchecked as str;
+		use Token::*;
+
+		f.write_str("Token: ")?;
+
+		unsafe {
+			match self {
+				Comment(bytes) => write!(f, "Comment({})", str(bytes)),
+				Ident(bytes) => write!(f, "Ident({})", str(bytes)),
+				Function(bytes) => write!(f, "Function({})", str(bytes)),
+				AtRule(bytes) => write!(f, "AtRule({})", str(bytes)),
+				Hash(bytes) => write!(f, "Hash({})", str(bytes)),
+				String(bytes) => write!(f, "String({})", str(bytes)),
+				Number(bytes) => write!(f, "Number({})", str(bytes)),
+				Delim(d) => write!(f, "Delim({d})"),
+				BadString => f.write_str("BadString"),
+				Whitespace => f.write_str("Whitespace"),
+				Colon => f.write_str("Color"),
+				Semicolon => f.write_str("Semicolon"),
+				Comma => f.write_str("Comma"),
+				BracketRoundOpen => f.write_str("BracketRoundOpen"),
+				BracketRoundClose => f.write_str("BracketRoundClose"),
+				BracketSquareOpen => f.write_str("BracketSquareOpen"),
+				BracketSquareClose => f.write_str("BracketSquareClose"),
+				BracketCurlyOpen => f.write_str("BracketCurlyOpen"),
+				BracketCurlyClose => f.write_str("BracketCurlyClose"),
+			}
+		}
+	}
 }

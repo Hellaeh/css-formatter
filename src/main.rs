@@ -1,8 +1,9 @@
 #![feature(slice_as_chunks)]
 #![feature(variant_count)]
 #![feature(byte_slice_trim_ascii)]
+#![feature(thread_local)]
 
-use std::io::{BufReader, Read, Write};
+use std::io::{Read, Write};
 
 fn main() -> std::io::Result<()> {
 	let mut args = std::env::args();
@@ -17,7 +18,9 @@ fn main() -> std::io::Result<()> {
 		let mut res = String::new();
 		let mut reader = std::io::BufReader::new(std::io::stdin());
 
-		reader.read_to_string(&mut res);
+		reader
+			.read_to_string(&mut res)
+			.unwrap_or_else(|e| panic!("Error while reading stdin: {e:?}"));
 
 		Some(res)
 	}) else {
@@ -30,9 +33,9 @@ fn main() -> std::io::Result<()> {
 
 	let mut output = Vec::with_capacity(input.len());
 
-	if let Err(error) = css::format(input, &mut output) {
+	if let Err(error) = css::format(&input, &mut output) {
 		eprintln!("Error: {error:?}");
-		return Ok(());
+		std::process::exit(1);
 	};
 
 	std::io::stdout().write_all(&output)

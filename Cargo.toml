@@ -1,7 +1,14 @@
 [package]
 name = "hel-css-formatter"
-version = "0.0.1"
+authors = ["Hellaeh <me@hellaeh.com>"]
+version = "0.0.2"
 edition = "2021"
+description = "An opinionated CSS formatter"
+license = "MIT"
+repository = "https://github.com/Hellaeh/css-formatter.git"
+keywords = ["CSS", "formatter"]
+readme = "README.md"
 
 [dependencies]
 hel-trie = { path = "../../crates/trees/trie" }
+

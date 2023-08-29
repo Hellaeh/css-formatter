@@ -1,5 +1,6 @@
-// Groups of css properties. The value will be used for group precedence separated by newline
-#[repr(u8)]
+/// Groups of CSS properties. Will be used for grouping CSS properties separated by newline
+#[repr(u64)]
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Group {
 	ParentLayout = 0,
@@ -13,9 +14,10 @@ pub enum Group {
 	Special = 8,
 
 	// Variables and other weird stuff idk
-	Custom = u8::MAX,
+	Custom = u64::MAX,
 }
 
+/// A CSS property descriptor
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Descriptor<'a> {
 	name: &'a str,
@@ -25,7 +27,10 @@ pub struct Descriptor<'a> {
 
 macro_rules! group_css_props {
 	({ $($group: expr => ($lexicographical_order: expr, $variant: ident, $repr: expr)$(,)?)* }) => {
+		/// Containing "all" CSS properties
+		/// Provided a handy method that returns property [`descriptor`](Descriptor)
 		#[repr(usize)]
+		#[allow(dead_code)]
 		#[derive(Clone, Copy, Debug)]
 		pub enum Property {
 			$($variant),*
@@ -90,6 +95,9 @@ group_css_props!({
 	Group::Display => (101, Transform, "transform"), // Applies a 2D or 3D transformation to an element
 	Group::Display => (101, TransformOrigin, "transform-origin"), // Sets the origin for the transformation of the element
 	Group::Display => (101, TransformStyle, "transform-style"), // Specifies the display behavior of 3D space nested elements
+	Group::Display => (1010, Translate, "translate"), // Allows you to specify translation transforms individually and independently of the transform property
+	Group::Display => (1010, Scale, "scale"), // Allows you to specify scale transforms individually and independently of the transform property
+	Group::Display => (1010, Rotate, "rotate"), // Allows you to specify rotation transforms individually and independently of the transform property
 	Group::Display => (102, BoxShadow, "box-shadow"), // Adds a shadow effect to an element
 	Group::Display => (102, CaretColor, "caret-color"), // Sets the color of the blinking mouse caret
 	Group::Display => (102, ClipPath, "clip-path"), // Clips an element inside a specific shape or SVG
@@ -197,10 +205,17 @@ group_css_props!({
 	Group::Special => (1, BreakInside, "break-inside"), // Specifies if print pageBreak is allowed inside an element
 	Group::Special => (1, CounterIncrement, "counter-increment"), // Increase or decrease a CSS counter
 	Group::Special => (1, CounterReset, "counter-reset"), // Initialize or reset CSS counter
+	Group::Special => (1, OverscrollBehavior, "overscroll-behavior") // Sets what a browser does when reaching the boundary of a scrolling area
+	Group::Special => (1, OverscrollBehaviorBlock, "overscroll-behavior-block") // Sets the browser's behavior when the block direction boundary of a scrolling area is reached
+	Group::Special => (1, OverscrollBehaviorInline, "overscroll-behavior-inline") // Sets the browser's behavior when the inline direction boundary of a scrolling area is reached
+	Group::Special => (1, OverscrollBehaviorX, "overscroll-behavior-x") // Sets the browser's behavior when the horizontal boundary of a scrolling area is reached
+	Group::Special => (1, OverscrollBehaviorY, "overscroll-behavior-y") // Sets the browser's behavior when the vertical boundary of a scrolling area is reached
 	Group::Special => (1, PointerEvents, "pointer-events"), // Specifies whether element reacts to pointer events or not
-	Group::Special => (1, ScrollBehavior, "scroll-behavior"), // Specifies the scrolling behavior of an element
-	Group::Special => (1, UserSelect, "user-select"), // Controls whether the user can select text
 	Group::Special => (1, Resize, "resize"), // Sets whether an element is resizable, and if so, in which directions.
+	Group::Special => (1, ScrollBehavior, "scroll-behavior"), // Specifies the scrolling behavior of an element
+	Group::Special => (1, TouchAction, "touch-action") // Sets how an element's region can be manipulated by a touchscreen user
+	Group::Special => (1, UserSelect, "user-select"), // Controls whether the user can select text
+	Group::Special => (1, WillChange, "will-change"), // Hints to browsers how an element is expected to change
 
 	Group::Transition => (1, Transition, "transition"), // Creates transitions from one property value to another
 	Group::Transition => (1, TransitionDelay, "transition-delay"), // Creates a delay before the transition effect starts
@@ -223,6 +238,7 @@ group_css_props!({
 	Group::Typography => (20, FontStretch, "font-stretch"), // Sets the text characters to a wider or narrower variant
 	Group::Typography => (20, FontVariant, "font-variant"), // Specifies that text is displayed in a smallCaps font
 	Group::Typography => (20, LetterSpacing, "letter-spacing"), // Sets the spacing between characters
+	Group::Typography => (20, TabSize, "tab-size"), // Is used to customize the width of tab characters (U+0009)
 	Group::Typography => (20, TextAlign, "text-align"), // Sets the alignment of text inside an element
 	Group::Typography => (20, TextAlignLast, "text-align-last"), // Sets the alignment for the last line of text
 	Group::Typography => (20, TextIndent, "text-indent"), // Sets the indentation to the beginning of text
@@ -235,6 +251,7 @@ group_css_props!({
 	Group::Typography => (20, WordWrap, "word-wrap"), // Specifies how long words can be wrapped
 	Group::Typography => (20, WritingMode, "writing-mode"), // Sets the text reading orientation: top to bottom, etc
 	Group::Typography => (30, Columns, "columns"), // Divide an element into columns of a certain width
+	Group::Typography => (30, Widows, "widows"), // Sets the minimum number of lines in a block container that must be shown at the top of a page, region, or column
 	Group::Typography => (31, ColumnCount, "column-count"), // Divides an element into the specified number of columns
 	Group::Typography => (31, ColumnFill, "column-fill"), // Specifies how divided columns are filled
 	Group::Typography => (31, ColumnGap, "column-gap"), // Specifies the space between divided columns
@@ -244,14 +261,14 @@ group_css_props!({
 	Group::Typography => (31, ColumnRuleWidth, "column-rule-width"), // Sets the width of a column divider
 	Group::Typography => (31, ColumnSpan, "column-span"), // Sets number of divided columns an element should span
 	Group::Typography => (31, ColumnWidth, "column-width"), // Specifies the width of a divided column
-	Group::Typography => (40, Hyphens, "hyphens"), // Specifies hyphenation with wrap opportunities in a line of text
-	Group::Typography => (40, Quotes, "quotes"), // Defines the quotation marks to be used on text
-	Group::Typography => (40, TextDecoration, "text-decoration"), // Defines the style and color of underlined text
-	Group::Typography => (40, TextDecorationColor, "text-decoration-color"), // Defines the color of underlined text
-	Group::Typography => (40, TextDecorationLine, "text-decoration-line"), // Defines the kind of line to use with text
-	Group::Typography => (40, TextDecorationStyle, "text-decoration-style"), // Defines the style of underlined text
-	Group::Typography => (40, TextShadow, "text-shadow"), // Adds a shadow effect to text
-	Group::Typography => (40, TextTransform, "text-transform"), // Defines text capitalization or casing
+	Group::Typography => (50, Hyphens, "hyphens"), // Specifies hyphenation with wrap opportunities in a line of text
+	Group::Typography => (50, Quotes, "quotes"), // Defines the quotation marks to be used on text
+	Group::Typography => (50, TextDecoration, "text-decoration"), // Defines the style and color of underlined text
+	Group::Typography => (50, TextDecorationColor, "text-decoration-color"), // Defines the color of underlined text
+	Group::Typography => (50, TextDecorationLine, "text-decoration-line"), // Defines the kind of line to use with text
+	Group::Typography => (50, TextDecorationStyle, "text-decoration-style"), // Defines the style of underlined text
+	Group::Typography => (50, TextShadow, "text-shadow"), // Adds a shadow effect to text
+	Group::Typography => (50, TextTransform, "text-transform"), // Defines text capitalization or casing
 });
 
 impl<'a> Property {
