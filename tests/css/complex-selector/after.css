@@ -1,0 +1,9 @@
+a:is(
+	[href*="path1"]:not([href~="path3"]),
+	[href*="path2"]:not([href~="path4"])
+) {
+	background: red;
+
+	color: white;
+}
+

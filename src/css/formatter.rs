@@ -1,298 +1,388 @@
+use std::hint::unreachable_unchecked;
 use std::io::Write;
 
 use self::context::Context;
-use self::line::{Line, LineWithContext};
 use self::utils::Helper;
 
-use super::parser::{Error as ParserError, Parser, Token};
-use super::properties::{Descriptor, Property as CSSProperties};
+use super::parser::{Error as ParserError, Token, Tokens};
+use super::properties::{Descriptor, Trie};
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Error<'a> {
-	UnexpectedToken(Token<'a>),
+	BadComment,
+	BadString,
+	IO(std::io::Error),
+	TooManyLevelsOfIndentation,
 	UnexpectedEOF,
-	IOError(std::io::Error),
+	UnexpectedToken(Token<'a>),
+	UnexpectedUTF8,
+	UnknownProperty,
 }
 
 #[derive(Debug)]
-pub struct Formatter;
+pub struct Formatter<'a, T> {
+	tokens: Tokens<'a>,
+	context: Context<T>,
+	prop_trie: Trie<'a>,
+}
 
-impl Formatter {
+pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
+
+impl<'a, T: std::io::Write> Formatter<'a, T> {
 	#[inline]
-	pub fn new() -> Self {
-		Self
+	fn format_atrule(&mut self) -> Result<'a, ()> {
+		todo!()
+	}
+
+	// CSS now support nesting which means pain in the ass for me
+	// We will enforce order of:
+	// 1. Declarations like - `background: red;` - separated by newline
+	// 2. Nested selectors (if any) like - `&:hover { ... }` - separated by empty line
+	// 3. Nested media queries (if any) like - `@media { ... }` - separated by empty line
+	#[inline]
+	fn format_block(&mut self) -> Result<'a, ()> {
+		// Turn `something{` into `something {`
+		if !self.context.is_empty() {
+			self.context.write_space()?;
+		}
+
+		self.context.write_u8(b'{')?;
+
+		// Start a new line
+		self.context.flush()?;
+
+		self.context.indent_inc()?;
+
+		// Store all declarations for sorting later
+		let mut declarations = Vec::new();
+
+		// Temp buf to keep order
+		let temp_buf = Vec::new();
+		self.context.layer_push(temp_buf);
+
+		self.tokens.next_with_whitespace()?;
+
+		loop {
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Ident(bytes) if self.context.is_empty() => {
+					if let Some(desc) = if bytes.starts_with(b"--") {
+						let name = unsafe { std::str::from_utf8_unchecked(bytes) };
+
+						Some(Descriptor::variable(name))
+					} else {
+						self.prop_trie.get(bytes).copied()
+					} {
+						let res = self.format_declaration();
+
+						declarations.push((desc, self.context.take()));
+
+						if matches!(res, Err(Error::UnexpectedToken(Token::BracketCurlyClose))) {
+							continue;
+						}
+
+						res?
+					} else {
+						self.context.write_all(bytes)?;
+					};
+				}
+
+				Token::Function(_) => self.format_function()?,
+
+				Token::AtRule(_) => self.format_atrule()?,
+
+				Token::BracketSquareOpen => self.format_attribute_selector()?,
+
+				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+
+				Token::Colon => self.context.write_u8(b':')?,
+
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.flush()?;
+				}
+
+				Token::BracketCurlyOpen => self.format_block()?,
+
+				Token::BracketCurlyClose => {
+					let buf = unsafe { self.context.layer_take()?.unwrap_unchecked() };
+
+					self.write_declarations(declarations)?;
+
+					self.context.current_output().write_all(&buf)?;
+
+					// SAFETY: by recursive nature it's impossible to cause integer underflow
+					unsafe { self.context.indent_dec().unwrap_unchecked() };
+
+					// Insert empty line after block
+					self.context.write_u8(b'}')?;
+
+					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose)) {
+						self.context.flush()?;
+					}
+
+					self.context.flush()?;
+
+					return Ok(());
+				}
+
+				token => return Err(Error::UnexpectedToken(token)),
+			}
+
+			self.tokens.next_with_whitespace()?;
+		}
 	}
 
 	#[inline]
-	pub fn format<'a>(
-		&self,
-		parser: &mut Parser,
-		output: &mut impl std::io::Write,
-	) -> Result<(), Error<'a>> {
-		let mut lines = Vec::new();
+	fn whitespace_between_words(&mut self) -> Result<'a, ()> {
+		let (Some(prev), Ok(next)) = (self.tokens.prev(), self.tokens.peek_next()) else {
+			return Ok(());
+		};
 
-		let context = Context::new();
-		let mut current_line = LineWithContext::new(&context);
-
-		let mut prop_trie = hel_trie::Trie::new();
-		// Iterate over all CSS properties to populate trie
-		for i in 0..std::mem::variant_count::<CSSProperties>() {
-			let prop = unsafe { std::mem::transmute::<usize, CSSProperties>(i) };
-			let desc = prop.to_descriptor();
-			prop_trie.insert(desc.name(), desc);
+		if matches!(
+			prev,
+			Token::BracketRoundClose
+				| Token::BracketSquareClose
+				| Token::Hash(_)
+				| Token::Ident(_)
+				| Token::Number(_)
+				| Token::Whitespace
+		) && matches!(
+			next,
+			Token::Ident(_)
+				| Token::Colon
+				| Token::Delim(_)
+				| Token::Function(_)
+				| Token::Hash(_)
+				| Token::Number(_)
+		) {
+			self.context.write_space()?;
 		}
 
-		let mut prev_token = None;
+		Ok(())
+	}
 
+	/// Caller must ensure this function is called with valid token
+	#[inline]
+	pub fn format_function(&mut self) -> Result<'a, ()> {
+		self.whitespace_between_words()?;
+
+		let Token::Function(bytes) = self.tokens.current() else {
+			unsafe { unreachable_unchecked() }
+		};
+
+		self.context.write_all(bytes)?;
+
+		loop {
+			self.tokens.next_with_whitespace()?;
+
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::BracketRoundClose => {
+					self.context.write_u8(b')')?;
+					return Ok(());
+				}
+
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.write_space()?;
+				}
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Function(_) => self.format_function()?,
+
+				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+				Token::Colon => self.context.write_u8(b':')?,
+
+				Token::BracketSquareOpen => self.format_attribute_selector()?,
+
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
+			}
+		}
+	}
+
+	#[inline]
+	pub fn format(&mut self) -> Result<'a, ()> {
 		// Top level loop
 		loop {
-			use Token::*;
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
 
-			let mut token = match parser.next() {
-				Ok(Whitespace) => continue,
-				Ok(token) => token,
-				Err(ParserError::EOF) => break,
-				Err(err) => {
-					eprintln!("Parsing error: {err:?}");
-					continue;
-				}
-			};
-
-			match token {
-				Comment(bytes) => {
-					let line = if !current_line.is_empty() {
-						// Inlined comments should be placed on prev line
-						let mut temp = LineWithContext::new(&context);
-						temp.write_comment(bytes)?;
-						temp.take()
-					} else {
-						current_line.write_comment(bytes)?;
-						current_line.end()
-					};
-
-					lines.push(line);
+				// Comma and eol
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.flush()?;
 				}
 
-				// This block should handle most of incoming css
-				// All css properties, e.g. `background`, will be processed here
-				Ident(ident) => {
-					// Check if block start with a property
-					if prev_token == Some(BracketCurlyOpen) && prop_trie.get(ident).is_some() {
-						if !current_line.is_empty() {
-							todo!("Current line is not empty while property processing");
-						}
-						current_line.write_all(ident)?;
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
 
-						// We have to store all properties in a vec to sort later
-						let mut properties = Vec::new();
+				// Selector `div` or `.some-class` or `#some_id`
+				Token::Ident(bytes) | Token::Hash(bytes) => self.context.write_all(bytes)?,
 
-						// Descriptor will be used for sorting
-						let mut desc = *prop_trie.get(ident).expect("unknown property");
+				// At-rule `@media ...`, also format it's own block if any
+				Token::AtRule(_) => self.format_atrule()?,
 
-						prev_token = Some(token);
+				// Any delim `.some_class`
+				Token::Delim(delim) => self.context.write_u8(delim)?,
 
-						// Property loop
-						loop {
-							match parser.peek_next() {
-								Ok(BracketCurlyClose) => {
-									if !current_line.is_empty() {
-										properties.push((desc, current_line.end()));
-									}
+				// Selector `:is(...)`
+				Token::Function(_) => self.format_function()?,
 
-									break;
-								}
-								Err(ParserError::EOF) => panic!("wtf"),
-								Err(_) => todo!("error handling in property match"),
-								_ => {}
-							};
-
-							token = unsafe { parser.next().unwrap_unchecked() };
-
-							match token {
-								Whitespace => {
-									if current_line.is_empty()
-										|| matches!(prev_token, Some(x) if matches!(x, BracketRoundOpen))
-									{
-										continue;
-									}
-								}
-
-								Ident(bytes) if current_line.is_empty() => {
-									let name = unsafe { std::str::from_utf8_unchecked(bytes) };
-
-									// Check if variable
-									if bytes.starts_with(b"--") {
-										desc = Descriptor::new(name);
-									} else {
-										desc = *prop_trie
-											.get(name)
-											// TODO: change to unknown descriptor in future
-											.unwrap_or_else(|| panic!("unknown property: {name}"));
-									}
-
-									current_line.write_all(bytes)?;
-								}
-
-								Function(bytes) | Hash(bytes) | Ident(bytes) | Number(bytes) => {
-									if matches!(prev_token, Some(x) if matches!(x, Colon | Comma | Whitespace)) {
-										current_line.write_space()?;
-									}
-
-									current_line.write_all(bytes)?;
-								}
-
-								Semicolon => {
-									current_line.write_u8(b';')?;
-
-									properties.push((desc, current_line.end()));
-								}
-
-								Comment(bytes) => {
-									// Check if inline comment
-									let line = if !current_line.is_empty() {
-										// Put comment on prev line
-										let mut temp = LineWithContext::new(&context);
-										temp.write_comment(bytes)?;
-										temp.take()
-									} else {
-										current_line.write_comment(bytes)?;
-										current_line.end()
-									};
-
-									properties.push((desc, line));
-								}
-
-								Comma => current_line.write_u8(b',')?,
-								Colon => current_line.write_u8(b':')?,
-
-								BracketRoundOpen => current_line.write_u8(b'(')?,
-								BracketRoundClose => current_line.write_u8(b')')?,
-
-								Delim(del) => {
-									if matches!(del, b'#') {
-										current_line.write_space()?;
-									}
-
-									current_line.write_u8(del)?;
-								}
-
-								token => {
-									todo!("token in properties: {token:?}");
-								}
-							}
-
-							prev_token = Some(token);
-						}
-
-						// Sort by descriptor and then by line content
-						properties.sort();
-
-						let mut prev_group = properties.first().unwrap().0.group();
-						for (desc, line) in properties {
-							if desc.group() != prev_group {
-								prev_group = desc.group();
-								lines.push(Line::new())
-							}
-
-							lines.push(line)
-						}
-					} else {
-						// Add whitespace before ident
-						if !current_line.is_empty() && matches!(prev_token, Some(x) if !matches!(x, Delim(_))) {
-							current_line.write_space()?;
-						}
-
-						current_line.write_all(ident)?;
-					}
-				}
-
-				// `@media ...`
-				AtRule(rule) => {
-					todo!("Process: {token:?}");
-				}
-
-				Hash(bytes) => {
-					current_line.write_u8(b'#')?;
-					current_line.write_all(bytes)?;
-				}
+				// Selector `:is(...)`
+				Token::Colon => self.context.write_u8(b':')?,
 
 				// Selector `[href*="something"]`
-				String(bytes) => todo!(),
-				BadString => if parser.is_eof() {},
+				Token::BracketSquareOpen => self.format_attribute_selector()?,
 
-				Delim(delim) => {
-					current_line.write_u8(delim)?;
-				}
+				// Declaration block
+				Token::BracketCurlyOpen => self.format_block()?,
 
-				// Selector - `.abc1` or `#abc`
-				Number(bytes) => {
-					if !current_line.is_empty() {
-						current_line.write_space()?;
-					}
-
-					current_line.write_all(bytes)?;
-				}
-
-				Colon => {
-					current_line.write_u8(b':')?;
-				}
-
-				Semicolon => {
-					current_line.write_u8(b';')?;
-					lines.push(current_line.end())
-				}
-
-				Comma => {
-					current_line.write_u8(b',')?;
-					lines.push(current_line.end())
-				}
-
-				// `@media (min-width: 1280px)`
-				BracketRoundOpen => {
-					if !matches!(prev_token, Some(Function(_))) {
-						current_line.write_space()?;
-					}
-
-					current_line.write_u8(b'(')?;
-				}
-				BracketRoundClose => current_line.write_u8(b')')?,
-
-				// `[href*="something"]`
-				BracketSquareOpen => current_line.write_u8(b'[')?,
-				BracketSquareClose => current_line.write_u8(b']')?,
-
-				BracketCurlyOpen => {
-					if !current_line.is_empty() {
-						current_line.write_space()?;
-					}
-
-					current_line.write_u8(b'{')?;
-					lines.push(current_line.end());
-
-					context.indentation().inc();
-				}
-
-				BracketCurlyClose => {
-					context
-						.indentation()
-						.dec()
-						.map_err(|_| Error::UnexpectedToken(BracketCurlyClose))?;
-
-					current_line.write_u8(b'}')?;
-					lines.push(current_line.end());
-					// Empty line
-					lines.push(Line::new())
-				}
-
-				_ => unreachable!(),
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
 			}
 
-			prev_token = Some(token)
+			match self.tokens.next_with_whitespace() {
+				Err(ParserError::EOF) => break,
+				Err(err) => {
+					// TODO: Should crash or ignore
+					eprintln!("Parsing error: {err:?}");
+				}
+
+				_ => {}
+			};
 		}
 
-		for line in lines {
-			output.write_all(&line)?;
-			output.write_newline()?;
+		if !self.context.is_empty() {
+			self.context.flush()?;
+		}
+
+		Ok(())
+	}
+
+	#[inline]
+	fn format_declaration(&mut self) -> Result<'a, ()> {
+		loop {
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::BracketCurlyClose => {
+					self.context.write_u8(b';')?;
+					return Err(Error::UnexpectedToken(Token::BracketCurlyClose));
+				}
+
+				Token::Semicolon => {
+					self.context.write_u8(b';')?;
+					return Ok(());
+				}
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				// `color: var(--some-var);`
+				Token::Function(_) => self.format_function()?,
+
+				// `color: #cccccc;`
+				Token::Hash(bytes) | Token::Ident(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				// `content: ":)";`
+				Token::String(bytes) => self.format_string(bytes)?,
+
+				// `background: var(--some-var), blue;`
+				Token::Comma => self.context.write_u8(b',')?,
+
+				// `color: blue;`
+				Token::Colon => {
+					self.context.write_u8(b':')?;
+					self.context.write_space()?;
+				}
+
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
+			}
+
+			self.tokens.next_with_whitespace()?;
+		}
+	}
+
+	#[inline]
+	fn format_string(&mut self, bytes: &[u8]) -> Result<'a, ()> {
+		self.context.write_u8(b'"')?;
+		self.context.write_all(bytes)?;
+		self.context.write_u8(b'"')?;
+
+		Ok(())
+	}
+
+	#[inline]
+	pub fn new(tokens: Tokens<'a>, output: T) -> Self {
+		Self {
+			tokens,
+			context: Context::new(output),
+			prop_trie: Trie::new(),
+		}
+	}
+
+	#[inline]
+	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
+		self.whitespace_between_words()?;
+
+		self.context.write_u8(b'[')?;
+
+		loop {
+			self.tokens.next()?;
+
+			match self.tokens.current() {
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Ident(bytes) => self.context.write_all(bytes)?,
+
+				Token::String(bytes) => self.format_string(bytes)?,
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+
+				Token::BracketSquareClose => {
+					self.context.write_u8(b']')?;
+					return Ok(());
+				}
+
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
+			}
+		}
+	}
+
+	fn write_declarations(
+		&mut self,
+		mut declarations: Vec<(Descriptor<'a>, line::Line)>,
+	) -> Result<'a, ()> {
+		if declarations.is_empty() {
+			return Ok(());
+		}
+
+		declarations.sort();
+
+		let mut group = unsafe { declarations.first().unwrap_unchecked() }.0.group();
+		for (desc, line) in declarations {
+			if desc.group() != group {
+				dbg!(group);
+				group = desc.group();
+				// self.context.write_newline()?;
+				self.context.flush()?;
+			}
+
+			self.context.flush_line(&line)?;
 		}
 
 		Ok(())
@@ -303,18 +393,26 @@ impl<'a> From<ParserError> for Error<'a> {
 	#[inline]
 	fn from(value: ParserError) -> Self {
 		match value {
-			ParserError::CommentEOF => todo!(),
-			ParserError::EOF => todo!(),
-			ParserError::NonASCII => todo!(),
-			ParserError::NotANumber => todo!(),
+			ParserError::BadComment => Error::BadComment,
+			ParserError::BadString => Error::BadString,
+			ParserError::EOF => Error::UnexpectedEOF,
+			ParserError::NonASCII => Error::UnexpectedUTF8,
+			// ParserError::NotANumber => ,
 		}
 	}
 }
 
 impl<'a> From<std::io::Error> for Error<'a> {
-	#[inline]
+	#[inline(always)]
 	fn from(value: std::io::Error) -> Self {
-		Error::IOError(value)
+		Error::IO(value)
+	}
+}
+
+impl<'a> From<context::IntegerOverflow> for Error<'a> {
+	#[inline]
+	fn from(_: context::IntegerOverflow) -> Self {
+		Error::TooManyLevelsOfIndentation
 	}
 }
 

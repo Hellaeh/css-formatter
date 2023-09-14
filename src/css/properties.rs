@@ -1,5 +1,7 @@
+pub use trie::Trie;
+
 /// Groups of CSS properties. Will be used for grouping CSS properties separated by newline
-#[repr(u64)]
+#[repr(u8)]
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Group {
@@ -13,8 +15,10 @@ pub enum Group {
 	Transition = 7,
 	Special = 8,
 
-	// Variables and other weird stuff idk
-	Custom = u64::MAX,
+	Variable = u8::MAX - 1,
+
+	// Some other weird stuff idk
+	Custom = u8::MAX,
 }
 
 /// A CSS property descriptor
@@ -152,6 +156,7 @@ group_css_props!({
 	Group::Layout => (100, Display, "display"), // Specify an element's display behavior
 	Group::Layout => (101, Clear, "clear"), // Sets the element side that does not allow floating elements
 	Group::Layout => (101, Float, "float"), // Sets how an element is positioned relative to other elements
+	Group::Layout => (101, Gap, "gap"), // Sets the gaps (gutters) between rows and columns
 	Group::Layout => (110, FlexDirection, "flex-direction"), // Specifies the direction for the flex item to align
 	Group::Layout => (111, AlignContent, "align-content"), // Aligns items in a flex container along flex lines
 	Group::Layout => (111, AlignItems, "align-items"), // Aligns evenly spaced items in a flex container
@@ -279,12 +284,23 @@ impl<'a> Property {
 }
 
 impl<'a> Descriptor<'a> {
-	pub fn new(name: &'a str) -> Self {
+	#[inline]
+	fn new(name: &'a str, group: Group) -> Self {
 		Self {
 			name,
-			group: Group::Custom,
+			group,
 			order: 0,
 		}
+	}
+
+	#[inline(always)]
+	pub fn variable(name: &'a str) -> Self {
+		Self::new(name, Group::Variable)
+	}
+
+	#[inline(always)]
+	pub fn custom(name: &'a str) -> Self {
+		Self::new(name, Group::Custom)
 	}
 
 	#[inline(always)]
@@ -318,3 +334,5 @@ impl<'a> PartialOrd for Descriptor<'a> {
 		Some(self.cmp(other))
 	}
 }
+
+mod trie;

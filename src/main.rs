@@ -1,7 +1,5 @@
-#![feature(slice_as_chunks)]
 #![feature(variant_count)]
 #![feature(byte_slice_trim_ascii)]
-#![feature(thread_local)]
 
 use std::io::{Read, Write};
 

@@ -1,5 +1,3 @@
-use super::context::Indentation;
-
 pub trait Helper: std::io::Write {
 	#[inline]
 	fn write_comment(&mut self, bytes: &[u8]) -> std::io::Result<()> {
@@ -9,8 +7,8 @@ pub trait Helper: std::io::Write {
 	}
 
 	#[inline]
-	fn write_indent(&mut self, indent: &Indentation) -> std::io::Result<()> {
-		for _ in 0..**indent {
+	fn write_indent(&mut self, indent: u8) -> std::io::Result<()> {
+		for _ in 0..indent {
 			self.write_u8(b'\t')?;
 		}
 
@@ -23,7 +21,7 @@ pub trait Helper: std::io::Write {
 	}
 
 	#[inline(always)]
-	fn write_newline_with_indent(&mut self, indent: &Indentation) -> std::io::Result<()> {
+	fn write_newline_with_indent(&mut self, indent: u8) -> std::io::Result<()> {
 		self.write_newline()?;
 		self.write_indent(indent)
 	}

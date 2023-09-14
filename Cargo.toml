@@ -12,3 +12,6 @@ readme = "README.md"
 [dependencies]
 hel-trie = { path = "../../crates/trees/trie" }
 
+[dev-dependencies]
+hel-fs = "0.1.1"
+

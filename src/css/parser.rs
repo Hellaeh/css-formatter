@@ -1,24 +1,26 @@
+mod tokens;
+
 use crate::utils::Helper;
 
+pub use self::tokens::Tokens;
+
+// WARNING: KEEP IT COPYABLE
 #[derive(Clone, Copy, PartialEq)]
 pub enum Token<'a> {
-	Comment(&'a [u8]),
+	Comment(&'a [u8]), // Formatter should preserve comments
 
 	Ident(&'a [u8]),
 	Function(&'a [u8]),
+	// URL(&'a [u8]), // Function
+	// BadURL, // Not supported
 	AtRule(&'a [u8]),
 	Hash(&'a [u8]),
 	String(&'a [u8]),
-	BadString,
-	// URL(&'a [u8]), // Function
-	// BadURL, // Not supported
 	Delim(u8),
 	Number(&'a [u8]),
-	// Percentage, // Number is good enough for formatter
-	// Dimension, // Same
+	// Percentage, // Number
+	// Dimension, // Number
 	Whitespace,
-	// CDO, // Not supported
-	// CDC, // Not supported
 	Colon,
 	Semicolon,
 	Comma,
@@ -31,15 +33,16 @@ pub enum Token<'a> {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Error {
-	CommentEOF,
+	BadComment,
+	BadString,
 	EOF,
 	NonASCII,
-	NotANumber,
+	// NotANumber,
 }
 
 /// An opinionated parser for opinionated CSS formatter
-/// Support only ASCII
 #[derive(Debug)]
 pub struct Parser<'a> {
 	buf: &'a [u8],
@@ -48,6 +51,8 @@ pub struct Parser<'a> {
 	// For `peek`ing
 	cache: Option<Token<'a>>,
 }
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl<'a> Parser<'a> {
 	#[inline(always)]
@@ -70,7 +75,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	pub fn next(&mut self) -> Result<Token<'a>, Error> {
+	pub fn next(&mut self) -> Result<Token<'a>> {
 		if self.cache.is_some() {
 			return Ok(self.cache.take().unwrap());
 		}
@@ -100,18 +105,17 @@ impl<'a> Parser<'a> {
 			}
 
 			// Whitespace token
-			b' ' | b'\t' | b'\n' => {
-				self.process_whitespace(bytes);
+			b' ' | b'\t' | b'\n' | b'\r' => {
+				self.skip_whitespace(bytes);
 				Token::Whitespace
 			}
 
 			// A hash or delim token
 			b'#' => {
-				self.advance(1);
-
 				if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | b'_')) {
-					self.parse_name(bytes, &b'#')
+					self.parse_name(bytes)
 				} else {
+					self.advance(1);
 					Token::Delim(b'#')
 				}
 			}
@@ -143,7 +147,7 @@ impl<'a> Parser<'a> {
 				if next.is_digit() {
 					self.parse_number(bytes)?
 				} else if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'-')) {
-					self.parse_name(bytes, &0)
+					self.parse_name(bytes)
 				} else {
 					self.advance(1);
 					Token::Delim(b'-')
@@ -152,17 +156,16 @@ impl<'a> Parser<'a> {
 
 			// AtRule or Delim token
 			b'@' => {
-				self.advance(1);
-
 				if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | b'_')) {
-					self.parse_name(bytes, &b'@')
+					self.parse_name(bytes)
 				} else {
+					self.advance(1);
 					Token::Delim(b'@')
 				}
 			}
 
 			// Ident token
-			b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.parse_name(bytes, &0),
+			b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.parse_name(bytes),
 
 			_ => {
 				self.advance(1);
@@ -189,7 +192,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_comment(&mut self, bytes: &'a [u8]) -> Result<Token<'a>, Error> {
+	fn parse_comment(&mut self, bytes: &'a [u8]) -> Result<Token<'a>> {
 		// Step over comment opening seq `/*`
 		self.advance(2);
 
@@ -216,12 +219,15 @@ impl<'a> Parser<'a> {
 			self.advance(1);
 		}
 
-		Err(Error::CommentEOF)
+		Err(Error::BadComment)
 	}
 
 	#[inline]
-	fn parse_name(&mut self, bytes: &'a [u8], opening: &u8) -> Token<'a> {
+	fn parse_name(&mut self, bytes: &'a [u8]) -> Token<'a> {
+		let opening = bytes[self.pos()];
 		let start = self.pos();
+
+		self.advance(1);
 
 		let mut is_function = false;
 
@@ -229,8 +235,10 @@ impl<'a> Parser<'a> {
 			let cur = unsafe { bytes.get_unchecked(self.pos()) };
 
 			if !matches!(cur, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_') {
-				if matches!(cur, b'(' | b')') {
+				if matches!(cur, b'(') {
 					is_function = true;
+					// Consume opening paren
+					self.advance(1);
 				}
 
 				break;
@@ -252,21 +260,20 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn parse_number(&mut self, bytes: &'a [u8]) -> Result<Token<'a>, Error> {
+	fn parse_number(&mut self, bytes: &'a [u8]) -> Result<Token<'a>> {
 		let start = self.pos();
 
 		let mut cur = unsafe { bytes.get_unchecked(self.pos()) };
-		let mut opening = false;
 
 		if matches!(cur, b'-' | b'+' | b'.') {
 			self.advance(1);
-			opening = true;
 		}
 
 		while !self.is_eof() {
 			cur = unsafe { bytes.get_unchecked(self.pos()) };
 
-			if !matches!(cur, b'0'..=b'9' | b'.' | b'e' | b'E' | b'+' | b'-') {
+			// Matches (we don't care about validity): 1px, 1rem, 100%, +110e10, -110, +++++++++1, .1..1
+			if !matches!(cur,  b'%' | b'+' | b'-' | b'.' | b'A'..=b'Z'| b'a'..=b'z' |b'0'..=b'9' ) {
 				break;
 			}
 
@@ -275,25 +282,18 @@ impl<'a> Parser<'a> {
 
 		let bytes = &bytes[start..self.pos()];
 
-		if bytes.len() <= (opening as usize) {
-			return Err(Error::NotANumber);
-		}
-
 		Ok(Token::Number(bytes))
 	}
 
 	#[inline]
-	fn parse_string(&mut self, bytes: &'a [u8], quote: &u8) -> Result<Token<'a>, Error> {
-		// [`BadString`] instead of [`String`] in case EOF found
-		let mut token = Token::BadString;
-
+	fn parse_string(&mut self, bytes: &'a [u8], quote: &u8) -> Result<Token<'a>> {
 		let start = self.pos();
 
 		while !self.is_eof() {
 			let cur = unsafe { bytes.get_unchecked(self.pos()) };
 
 			if cur == quote {
-				token = Token::String(&bytes[start..self.pos()]);
+				let token = Token::String(&bytes[start..self.pos()]);
 				self.advance(1);
 				return Ok(token);
 			}
@@ -312,11 +312,11 @@ impl<'a> Parser<'a> {
 			self.advance(1);
 		}
 
-		Ok(token)
+		Err(Error::BadString)
 	}
 
 	#[inline(always)]
-	pub fn peek_next(&mut self) -> Result<Token, Error> {
+	pub fn peek_next(&mut self) -> Result<Token<'a>> {
 		match self.cache {
 			Some(token) => Ok(token),
 			None => {
@@ -333,7 +333,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn process_whitespace(&mut self, bytes: &'a [u8]) -> Token<'a> {
+	fn skip_whitespace(&mut self, bytes: &'a [u8]) {
 		// Step over once
 		self.advance(1);
 
@@ -341,14 +341,12 @@ impl<'a> Parser<'a> {
 		while !self.is_eof() {
 			let cur = unsafe { bytes.get_unchecked(self.pos()) };
 
-			if !matches!(cur, b' ' | b'\t' | b'\n') {
+			if !matches!(cur, b'\n' | b'\r' | b'\t' | b' ') {
 				break;
 			}
 
 			self.advance(1);
 		}
-
-		Token::Whitespace
 	}
 
 	// #[inline]
@@ -357,31 +355,27 @@ impl<'a> Parser<'a> {
 impl<'a> std::fmt::Debug for Token<'a> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use std::str::from_utf8_unchecked as str;
-		use Token::*;
-
-		f.write_str("Token: ")?;
 
 		unsafe {
 			match self {
-				Comment(bytes) => write!(f, "Comment({})", str(bytes)),
-				Ident(bytes) => write!(f, "Ident({})", str(bytes)),
-				Function(bytes) => write!(f, "Function({})", str(bytes)),
-				AtRule(bytes) => write!(f, "AtRule({})", str(bytes)),
-				Hash(bytes) => write!(f, "Hash({})", str(bytes)),
-				String(bytes) => write!(f, "String({})", str(bytes)),
-				Number(bytes) => write!(f, "Number({})", str(bytes)),
-				Delim(d) => write!(f, "Delim({d})"),
-				BadString => f.write_str("BadString"),
-				Whitespace => f.write_str("Whitespace"),
-				Colon => f.write_str("Color"),
-				Semicolon => f.write_str("Semicolon"),
-				Comma => f.write_str("Comma"),
-				BracketRoundOpen => f.write_str("BracketRoundOpen"),
-				BracketRoundClose => f.write_str("BracketRoundClose"),
-				BracketSquareOpen => f.write_str("BracketSquareOpen"),
-				BracketSquareClose => f.write_str("BracketSquareClose"),
-				BracketCurlyOpen => f.write_str("BracketCurlyOpen"),
-				BracketCurlyClose => f.write_str("BracketCurlyClose"),
+				Token::Comment(bytes) => write!(f, "Comment(\"{}\")", str(bytes)),
+				Token::Ident(bytes) => write!(f, "Ident(\"{}\")", str(bytes)),
+				Token::Function(bytes) => write!(f, "Function(\"{}\")", str(bytes)),
+				Token::AtRule(bytes) => write!(f, "AtRule(\"{}\")", str(bytes)),
+				Token::Hash(bytes) => write!(f, "Hash(\"{}\")", str(bytes)),
+				Token::String(bytes) => write!(f, "String(\"{}\")", str(bytes)),
+				Token::Number(bytes) => write!(f, "Number(\"{}\")", str(bytes)),
+				Token::Delim(d) => write!(f, "Delim({})", *d as char),
+				Token::Whitespace => f.write_str("Whitespace"),
+				Token::Colon => f.write_str("Colon"),
+				Token::Semicolon => f.write_str("Semicolon"),
+				Token::Comma => f.write_str("Comma"),
+				Token::BracketRoundOpen => f.write_str("BracketRoundOpen"),
+				Token::BracketRoundClose => f.write_str("BracketRoundClose"),
+				Token::BracketSquareOpen => f.write_str("BracketSquareOpen"),
+				Token::BracketSquareClose => f.write_str("BracketSquareClose"),
+				Token::BracketCurlyOpen => f.write_str("BracketCurlyOpen"),
+				Token::BracketCurlyClose => f.write_str("BracketCurlyClose"),
 			}
 		}
 	}
