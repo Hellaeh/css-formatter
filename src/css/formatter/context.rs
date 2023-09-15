@@ -31,10 +31,10 @@ where
 			*line_num += line.write_with_indent_into(indent, output)?;
 		}
 
-		// if !current_line.is_empty() {
-		*line_num += current_line.write_with_indent_into(indent, output)?;
-		current_line.clear();
-		// }
+		if !current_line.is_empty() {
+			*line_num += current_line.write_with_indent_into(indent, output)?;
+			current_line.clear();
+		}
 
 		Ok(())
 	}

@@ -30,6 +30,7 @@ pub struct Formatter<'a, T> {
 pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
 
 impl<'a, T: std::io::Write> Formatter<'a, T> {
+	// fn new_context(&self) ->
 	#[inline]
 	pub fn format(&mut self) -> Result<'a, ()> {
 		// Top level loop
@@ -94,8 +95,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 	#[inline]
 	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
-		self.whitespace_between_words()?;
-
 		self.context.write_u8(b'[')?;
 
 		loop {
@@ -220,15 +219,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 					self.context.write_u8(b'}')?;
 
-					if matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen)) {
-						self.context.write_newline()?;
-					}
-
 					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose))
-					// || matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen))
+						|| matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen))
 					{
-						dbg!("matches?", self.tokens.peek_next());
-						self.context.flush()?;
+						self.context.write_newline()?;
 					}
 
 					self.context.flush()?;
@@ -368,14 +362,14 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				| Token::Whitespace
 		) && matches!(
 			next,
-			Token::Ident(_)
+			Token::BracketSquareOpen
+				| Token::Ident(_)
 				| Token::Colon
 				| Token::Delim(_)
 				| Token::Function(_)
 				| Token::Hash(_)
 				| Token::Number(_)
 		) {
-			dbg!(prev, next);
 			self.context.write_space()?;
 		}
 
@@ -391,7 +385,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		let mut group = unsafe { declarations.first().unwrap_unchecked() }.0.group();
 		for (desc, line) in declarations {
 			if desc.group() != group {
-				dbg!(group);
 				group = desc.group();
 				// self.context.write_newline()?;
 				self.context.flush()?;
