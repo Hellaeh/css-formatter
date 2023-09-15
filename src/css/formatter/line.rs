@@ -40,8 +40,6 @@ impl Line {
 			return 1;
 		}
 
-		dbg!(buf.len());
-
 		todo!("split")
 	}
 }

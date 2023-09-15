@@ -176,6 +176,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 						res?
 					} else {
+						// CONSIDER: selection sorting ?
 						self.context.write_all(bytes)?;
 					};
 				}
@@ -272,7 +273,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::String(bytes) => self.format_string(bytes)?,
 
 				// `background: var(--some-var), blue;`
-				Token::Comma => self.context.write_u8(b',')?,
+				Token::Comma => self.context.write_all(b", ")?,
 
 				// `color: blue;`
 				Token::Colon => {
@@ -290,8 +291,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	/// Format CSS function `:is()` or `translate()`
 	#[inline]
 	pub fn format_function(&mut self) -> Result<'a, ()> {
-		self.whitespace_between_words()?;
-
 		let Token::Function(bytes) = self.tokens.current() else {
 			// #Safety: Caller must ensure this function is called with valid token
 			unsafe { unreachable_unchecked() }
