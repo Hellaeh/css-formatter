@@ -3,7 +3,7 @@ a:is(
 	[href*="path2"]:not([href~="path4"])
 ) {
 	background: red;
-
+	
 	color: white;
 }
 

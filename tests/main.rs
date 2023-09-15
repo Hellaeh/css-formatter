@@ -53,9 +53,13 @@ fn get_test_cases_except_big() -> impl Iterator<Item = (String, String)> {
 
 #[test]
 fn test_all_except_big() {
-	for (before, after) in get_test_cases_except_big() {
+	use hel_colored::Colored;
+
+	for (num, (before, after)) in get_test_cases_except_big().enumerate() {
+		println!("\n{}", format!("Test {}", num + 1).green());
+
 		let (before, stderr) = format(&before);
 
-		assert_eq!(before, after, "{stderr}");
+		assert_eq!(before, after, "\n{}:\n{}", "Failed!".red(), stderr.orange());
 	}
 }

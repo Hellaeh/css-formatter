@@ -31,191 +31,6 @@ pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
 
 impl<'a, T: std::io::Write> Formatter<'a, T> {
 	#[inline]
-	fn format_atrule(&mut self) -> Result<'a, ()> {
-		todo!()
-	}
-
-	// CSS now support nesting which means pain in the ass for me
-	// We will enforce order of:
-	// 1. Declarations like - `background: red;` - separated by newline
-	// 2. Nested selectors (if any) like - `&:hover { ... }` - separated by empty line
-	// 3. Nested media queries (if any) like - `@media { ... }` - separated by empty line
-	#[inline]
-	fn format_block(&mut self) -> Result<'a, ()> {
-		// Turn `something{` into `something {`
-		if !self.context.is_empty() {
-			self.context.write_space()?;
-		}
-
-		self.context.write_u8(b'{')?;
-
-		// Start a new line
-		self.context.flush()?;
-
-		self.context.indent_inc()?;
-
-		// Store all declarations for sorting later
-		let mut declarations = Vec::new();
-
-		// Temp buf to keep order
-		let temp_buf = Vec::new();
-		self.context.layer_push(temp_buf);
-
-		self.tokens.next_with_whitespace()?;
-
-		loop {
-			match self.tokens.current() {
-				Token::Whitespace => self.whitespace_between_words()?,
-
-				Token::Comment(bytes) => self.context.write_comment(bytes)?,
-
-				Token::Ident(bytes) if self.context.is_empty() => {
-					if let Some(desc) = if bytes.starts_with(b"--") {
-						let name = unsafe { std::str::from_utf8_unchecked(bytes) };
-
-						Some(Descriptor::variable(name))
-					} else {
-						self.prop_trie.get(bytes).copied()
-					} {
-						let res = self.format_declaration();
-
-						declarations.push((desc, self.context.take()));
-
-						if matches!(res, Err(Error::UnexpectedToken(Token::BracketCurlyClose))) {
-							continue;
-						}
-
-						res?
-					} else {
-						self.context.write_all(bytes)?;
-					};
-				}
-
-				Token::Function(_) => self.format_function()?,
-
-				Token::AtRule(_) => self.format_atrule()?,
-
-				Token::BracketSquareOpen => self.format_attribute_selector()?,
-
-				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
-					self.context.write_all(bytes)?
-				}
-
-				Token::Delim(del) => self.context.write_u8(del)?,
-
-				Token::Colon => self.context.write_u8(b':')?,
-
-				Token::Comma => {
-					self.context.write_u8(b',')?;
-					self.context.flush()?;
-				}
-
-				Token::BracketCurlyOpen => self.format_block()?,
-
-				Token::BracketCurlyClose => {
-					let buf = unsafe { self.context.layer_take()?.unwrap_unchecked() };
-
-					self.write_declarations(declarations)?;
-
-					self.context.current_output().write_all(&buf)?;
-
-					// SAFETY: by recursive nature it's impossible to cause integer underflow
-					unsafe { self.context.indent_dec().unwrap_unchecked() };
-
-					// Insert empty line after block
-					self.context.write_u8(b'}')?;
-
-					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose)) {
-						self.context.flush()?;
-					}
-
-					self.context.flush()?;
-
-					return Ok(());
-				}
-
-				token => return Err(Error::UnexpectedToken(token)),
-			}
-
-			self.tokens.next_with_whitespace()?;
-		}
-	}
-
-	#[inline]
-	fn whitespace_between_words(&mut self) -> Result<'a, ()> {
-		let (Some(prev), Ok(next)) = (self.tokens.prev(), self.tokens.peek_next()) else {
-			return Ok(());
-		};
-
-		if matches!(
-			prev,
-			Token::BracketRoundClose
-				| Token::BracketSquareClose
-				| Token::Hash(_)
-				| Token::Ident(_)
-				| Token::Number(_)
-				| Token::Whitespace
-		) && matches!(
-			next,
-			Token::Ident(_)
-				| Token::Colon
-				| Token::Delim(_)
-				| Token::Function(_)
-				| Token::Hash(_)
-				| Token::Number(_)
-		) {
-			self.context.write_space()?;
-		}
-
-		Ok(())
-	}
-
-	/// Caller must ensure this function is called with valid token
-	#[inline]
-	pub fn format_function(&mut self) -> Result<'a, ()> {
-		self.whitespace_between_words()?;
-
-		let Token::Function(bytes) = self.tokens.current() else {
-			unsafe { unreachable_unchecked() }
-		};
-
-		self.context.write_all(bytes)?;
-
-		loop {
-			self.tokens.next_with_whitespace()?;
-
-			match self.tokens.current() {
-				Token::Whitespace => self.whitespace_between_words()?,
-
-				Token::BracketRoundClose => {
-					self.context.write_u8(b')')?;
-					return Ok(());
-				}
-
-				Token::Comma => {
-					self.context.write_u8(b',')?;
-					self.context.write_space()?;
-				}
-
-				Token::Comment(bytes) => self.context.write_comment(bytes)?,
-
-				Token::Function(_) => self.format_function()?,
-
-				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
-					self.context.write_all(bytes)?
-				}
-
-				Token::Delim(del) => self.context.write_u8(del)?,
-				Token::Colon => self.context.write_u8(b':')?,
-
-				Token::BracketSquareOpen => self.format_attribute_selector()?,
-
-				unexpected => return Err(Error::UnexpectedToken(unexpected)),
-			}
-		}
-	}
-
-	#[inline]
 	pub fn format(&mut self) -> Result<'a, ()> {
 		// Top level loop
 		loop {
@@ -273,6 +88,161 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	}
 
 	#[inline]
+	fn format_atrule(&mut self) -> Result<'a, ()> {
+		todo!()
+	}
+
+	#[inline]
+	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
+		self.whitespace_between_words()?;
+
+		self.context.write_u8(b'[')?;
+
+		loop {
+			// No spaces expected
+			self.tokens.next()?;
+
+			match self.tokens.current() {
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Ident(bytes) => self.context.write_all(bytes)?,
+
+				Token::String(bytes) => self.format_string(bytes)?,
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+
+				Token::BracketSquareClose => {
+					self.context.write_u8(b']')?;
+					return Ok(());
+				}
+
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
+			}
+		}
+	}
+
+	// CSS now support nesting which means pain in the ass for me
+	// We will enforce order of:
+	// 1. Declarations like - `background: red;` - separated by newline
+	// 2. Nested selectors (if any) like - `&:hover { ... }` - separated by empty line
+	// 3. Nested media queries (if any) like - `@media { ... }` - separated by empty line
+	#[inline]
+	fn format_block(&mut self) -> Result<'a, ()> {
+		// Turn `something{` into `something {`, but not `{` to ` {`
+		if !self.context.is_empty() {
+			self.context.write_space()?;
+		}
+
+		self.context.write_u8(b'{')?;
+		self.context.flush()?;
+
+		self.context.indent_inc()?;
+
+		// Store all declarations for sorting later
+		// Order: 1st
+		let mut declarations = Vec::new();
+
+		// Order: 2nd
+		let nested_block = Vec::new();
+		self.context.layer_push(nested_block);
+
+		// Order: 3nd
+		// let at_rules = Vec::new();
+
+		self.tokens.next()?;
+
+		loop {
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Ident(bytes) if self.context.is_empty() => {
+					if let Some(desc) = if bytes.starts_with(b"--") {
+						let variable_name = unsafe { std::str::from_utf8_unchecked(bytes) };
+
+						Some(Descriptor::variable(variable_name))
+					} else {
+						self.prop_trie.get(bytes).copied()
+					} {
+						let res = self.format_declaration();
+
+						declarations.push((desc, self.context.take()));
+
+						// You can skip trailing `;` in declaration, if next token is `}` ignoring whitespace in between
+						if matches!(res, Err(Error::UnexpectedToken(Token::BracketCurlyClose))) {
+							continue;
+						}
+
+						res?
+					} else {
+						self.context.write_all(bytes)?;
+					};
+				}
+
+				Token::Function(_) => self.format_function()?,
+
+				Token::AtRule(_) => self.format_atrule()?,
+
+				Token::BracketSquareOpen => self.format_attribute_selector()?,
+
+				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+
+				Token::Colon => self.context.write_u8(b':')?,
+
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.flush()?;
+				}
+
+				Token::BracketCurlyOpen => self.format_block()?,
+
+				Token::BracketCurlyClose => {
+					let buf = unsafe { self.context.layer_take()?.unwrap_unchecked() };
+
+					if !declarations.is_empty() {
+						self.write_declarations(declarations)?;
+
+						if !buf.is_empty() {
+							self.context.flush()?;
+						}
+					}
+
+					self.context.current_output().write_all(&buf)?;
+
+					// SAFETY: by recursive nature it's impossible to cause integer underflow
+					unsafe { self.context.indent_dec().unwrap_unchecked() };
+
+					self.context.write_u8(b'}')?;
+
+					if matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen)) {
+						self.context.write_newline()?;
+					}
+
+					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose))
+					// || matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen))
+					{
+						dbg!("matches?", self.tokens.peek_next());
+						self.context.flush()?;
+					}
+
+					self.context.flush()?;
+
+					return Ok(());
+				}
+
+				token => return Err(Error::UnexpectedToken(token)),
+			}
+
+			self.tokens.next_with_whitespace()?;
+		}
+	}
+
+	#[inline]
 	fn format_declaration(&mut self) -> Result<'a, ()> {
 		loop {
 			match self.tokens.current() {
@@ -317,6 +287,54 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		}
 	}
 
+	/// Format CSS function `:is()` or `translate()`
+	#[inline]
+	pub fn format_function(&mut self) -> Result<'a, ()> {
+		self.whitespace_between_words()?;
+
+		let Token::Function(bytes) = self.tokens.current() else {
+			// #Safety: Caller must ensure this function is called with valid token
+			unsafe { unreachable_unchecked() }
+		};
+
+		self.context.write_all(bytes)?;
+
+		self.tokens.next()?;
+
+		loop {
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::BracketRoundClose => {
+					self.context.write_u8(b')')?;
+					return Ok(());
+				}
+
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.write_space()?;
+				}
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Function(_) => self.format_function()?,
+
+				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+				Token::Colon => self.context.write_u8(b':')?,
+
+				Token::BracketSquareOpen => self.format_attribute_selector()?,
+
+				unexpected => return Err(Error::UnexpectedToken(unexpected)),
+			}
+
+			self.tokens.next_with_whitespace()?;
+		}
+	}
+
 	#[inline]
 	fn format_string(&mut self, bytes: &[u8]) -> Result<'a, ()> {
 		self.context.write_u8(b'"')?;
@@ -336,41 +354,39 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	}
 
 	#[inline]
-	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
-		self.whitespace_between_words()?;
+	fn whitespace_between_words(&mut self) -> Result<'a, ()> {
+		let (Some(prev), Ok(next)) = (self.tokens.prev(), self.tokens.peek_next()) else {
+			return Ok(());
+		};
 
-		self.context.write_u8(b'[')?;
-
-		loop {
-			self.tokens.next()?;
-
-			match self.tokens.current() {
-				Token::Comment(bytes) => self.context.write_comment(bytes)?,
-
-				Token::Ident(bytes) => self.context.write_all(bytes)?,
-
-				Token::String(bytes) => self.format_string(bytes)?,
-
-				Token::Delim(del) => self.context.write_u8(del)?,
-
-				Token::BracketSquareClose => {
-					self.context.write_u8(b']')?;
-					return Ok(());
-				}
-
-				unexpected => return Err(Error::UnexpectedToken(unexpected)),
-			}
+		if matches!(
+			prev,
+			Token::BracketRoundClose
+				| Token::BracketSquareClose
+				| Token::Hash(_)
+				| Token::Ident(_)
+				| Token::Number(_)
+				| Token::Whitespace
+		) && matches!(
+			next,
+			Token::Ident(_)
+				| Token::Colon
+				| Token::Delim(_)
+				| Token::Function(_)
+				| Token::Hash(_)
+				| Token::Number(_)
+		) {
+			dbg!(prev, next);
+			self.context.write_space()?;
 		}
+
+		Ok(())
 	}
 
 	fn write_declarations(
 		&mut self,
 		mut declarations: Vec<(Descriptor<'a>, line::Line)>,
 	) -> Result<'a, ()> {
-		if declarations.is_empty() {
-			return Ok(());
-		}
-
 		declarations.sort();
 
 		let mut group = unsafe { declarations.first().unwrap_unchecked() }.0.group();

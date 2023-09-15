@@ -107,6 +107,16 @@ where
 		}
 	}
 
+	#[inline(always)]
+	pub fn write_newline(&mut self) -> std::io::Result<()> {
+		self.line_num += 1;
+
+		self.current_line.write_newline()?;
+		self.flush()?;
+
+		Ok(())
+	}
+
 	#[inline]
 	pub fn take(&mut self) -> Line {
 		let res = self.current_line.clone();

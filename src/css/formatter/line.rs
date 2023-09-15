@@ -28,7 +28,6 @@ impl Line {
 		output.write_indent(indent)?;
 		output.write_all(self)?;
 		output.write_newline()?;
-		self.clear();
 
 		Ok(lines)
 	}

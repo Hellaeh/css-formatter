@@ -3,9 +3,16 @@
 version = 3
 
 [[package]]
+name = "hel-colored"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cecf961e766d19ef6dffe9e30c351571a8d8f38b275f1fb4212f6b62b231f7b"
+
+[[package]]
 name = "hel-css-formatter"
 version = "0.0.2"
 dependencies = [
+ "hel-colored",
  "hel-fs",
  "hel-trie",
 ]
