@@ -25,7 +25,7 @@ fn test_all_except_big() {
 				println!("{} {:?}", "Got:".red(), diff.left);
 				println!("{} {:?}", "Should be:".green(), diff.right);
 
-				println!("{}\n", stderr.orange());
+				println!("Stderr:\n{}\n", stderr.orange());
 
 				failed += 1;
 			}
