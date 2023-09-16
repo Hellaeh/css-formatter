@@ -90,17 +90,58 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 	#[inline]
 	fn format_atrule(&mut self) -> Result<'a, ()> {
-		todo!()
+		let Token::AtRule(bytes) = self.tokens.current() else {
+			unsafe { unreachable_unchecked() }
+		};
+
+		self.context.write_all(bytes)?;
+
+		self.tokens.next_with_whitespace()?;
+
+		loop {
+			match self.tokens.current() {
+				Token::Whitespace => self.whitespace_between_words()?,
+
+				Token::Comment(bytes) => self.context.write_comment(bytes)?,
+
+				Token::Ident(bytes) | Token::Hash(bytes) | Token::Number(bytes) => {
+					self.context.write_all(bytes)?
+				}
+
+				Token::Function(_) => self.format_function()?,
+
+				Token::String(bytes) => self.format_string(bytes)?,
+
+				Token::Delim(del) => self.context.write_u8(del)?,
+
+				// Token::Colon => ,
+				Token::Semicolon => {
+					self.context.write_u8(b';')?;
+				}
+
+				// Token::Comma => todo!(),
+				Token::BracketRoundOpen => todo!(),
+				Token::BracketRoundClose => todo!(),
+				Token::BracketSquareOpen => todo!(),
+				Token::BracketSquareClose => todo!(),
+				Token::BracketCurlyOpen => todo!(),
+				Token::BracketCurlyClose => todo!(),
+
+				token => return Err(Error::UnexpectedToken(token)),
+			}
+
+			self.tokens.next_with_whitespace()?;
+		}
 	}
 
 	#[inline]
 	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
 		self.context.write_u8(b'[')?;
 
-		loop {
-			// No spaces expected
-			self.tokens.next()?;
+		// No spaces expected
+		self.tokens.next()?;
 
+		loop {
 			match self.tokens.current() {
 				Token::Comment(bytes) => self.context.write_comment(bytes)?,
 
@@ -117,6 +158,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				unexpected => return Err(Error::UnexpectedToken(unexpected)),
 			}
+
+			self.tokens.next()?;
 		}
 	}
 
@@ -218,26 +261,17 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					unsafe { self.context.indent_dec().unwrap_unchecked() };
 
 					self.context.write_u8(b'}')?;
+					self.context.flush()?;
 
-					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose))
-						|| matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen))
-					{
-						self.context.flush()?;
+					// Skip next whitespace token
+					if matches!(self.tokens.peek_next(), Ok(Token::Whitespace)) {
+						unsafe { self.tokens.next_with_whitespace().unwrap_unchecked() };
 					}
 
-					// loop {
-					// 	match self.tokens.peek_next() {
-					// 		Ok(Token::Whitespace) => {
-					// 			self.tokens.next()?;
-					// 		}
-					// 		Ok(Token::BracketCurlyClose) => {}
-					// 		Ok(_) => {
-					// 			self.context.flush()?;
-					// 			break;
-					// 		}
-					// 		Err(_) => {}
-					// 	}
-					// }
+					// Add empty line after block, if there's more content
+					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose)) {
+						self.context.flush()?;
+					}
 
 					return Ok(());
 				}

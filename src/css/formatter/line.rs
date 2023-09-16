@@ -18,7 +18,7 @@ impl Line {
 	}
 
 	#[inline(always)]
-	pub fn write_with_indent_into(
+	pub fn flush_self_with_indent(
 		&mut self,
 		indent: u8,
 		output: &mut impl std::io::Write,
@@ -28,6 +28,8 @@ impl Line {
 		output.write_indent(indent)?;
 		output.write_all(self)?;
 		output.write_newline()?;
+
+		self.clear();
 
 		Ok(lines)
 	}
