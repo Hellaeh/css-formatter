@@ -31,7 +31,11 @@ where
 			*line_num += line.write_with_indent_into(indent, output)?;
 		}
 
-		if !current_line.is_empty() {
+		if current_line.is_empty() {
+			*line_num += 1;
+			output.write_newline()?;
+			output.flush()?;
+		} else {
 			*line_num += current_line.write_with_indent_into(indent, output)?;
 			current_line.clear();
 		}
@@ -105,16 +109,6 @@ where
 			current_line: Line::new(),
 			queue: Vec::new(),
 		}
-	}
-
-	#[inline(always)]
-	pub fn write_newline(&mut self) -> std::io::Result<()> {
-		self.line_num += 1;
-
-		self.current_line.write_newline()?;
-		self.flush()?;
-
-		Ok(())
 	}
 
 	#[inline]

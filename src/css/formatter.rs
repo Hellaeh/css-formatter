@@ -222,10 +222,22 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					if !matches!(self.tokens.peek_next(), Ok(Token::BracketCurlyClose))
 						|| matches!(self.tokens.prev(), Some(Token::BracketCurlyOpen))
 					{
-						self.context.write_newline()?;
+						self.context.flush()?;
 					}
 
-					self.context.flush()?;
+					// loop {
+					// 	match self.tokens.peek_next() {
+					// 		Ok(Token::Whitespace) => {
+					// 			self.tokens.next()?;
+					// 		}
+					// 		Ok(Token::BracketCurlyClose) => {}
+					// 		Ok(_) => {
+					// 			self.context.flush()?;
+					// 			break;
+					// 		}
+					// 		Err(_) => {}
+					// 	}
+					// }
 
 					return Ok(());
 				}
@@ -386,7 +398,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		for (desc, line) in declarations {
 			if desc.group() != group {
 				group = desc.group();
-				// self.context.write_newline()?;
 				self.context.flush()?;
 			}
 
