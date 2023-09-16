@@ -9,16 +9,16 @@ fn test_all_except_big() {
 	for (num, (name, before, after)) in get_test_cases_except_big().enumerate() {
 		print!(
 			"\n{}",
-			format!("Test {}: {}", num + 1, name.yellow()).green()
+			format!("Test {}: {} - ", num + 1, name.yellow()).green()
 		);
 
 		let (before, stderr) = format(&before);
 
 		match differentiate(&before, &after) {
-			Ok(_) => println!(" - {}", "Passed!".green()),
+			Ok(_) => println!("{}\n", "Passed!".green()),
 
 			Err(diff) => {
-				println!(" - {}\n", "Failed!".red());
+				println!("{}\n", "Failed!".red());
 
 				println!("At line {}", diff.row);
 
