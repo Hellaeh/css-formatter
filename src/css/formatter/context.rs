@@ -12,7 +12,7 @@ pub struct Context<T> {
 	line_num: u32,
 
 	current_line: Line,
-	queue: Vec<Line>,
+	comment: Line,
 }
 
 impl<T> Context<T>
@@ -22,18 +22,21 @@ where
 	#[inline(always)]
 	fn flush_into(
 		current_line: &mut Line,
-		queue: &mut Vec<Line>,
+		prev_line: &mut Line,
 		line_num: &mut u32,
 		indent: u8,
 		output: &mut impl std::io::Write,
 	) -> std::io::Result<()> {
-		while let Some(mut line) = queue.pop() {
-			*line_num += line.write_with_indent_into(indent, output)?;
+		if !prev_line.is_empty() {
+			*line_num += prev_line.flush_self_with_indent(indent, output)?;
 		}
 
-		if !current_line.is_empty() {
-			*line_num += current_line.write_with_indent_into(indent, output)?;
-			current_line.clear();
+		if current_line.is_empty() {
+			*line_num += 1;
+			output.write_newline()?;
+			output.flush()?;
+		} else {
+			*line_num += current_line.flush_self_with_indent(indent, output)?;
 		}
 
 		Ok(())
@@ -46,14 +49,14 @@ where
 		match self.layers.last_mut() {
 			Some(layer) => Self::flush_into(
 				&mut self.current_line,
-				&mut self.queue,
+				&mut self.comment,
 				&mut self.line_num,
 				self.indent,
 				layer,
 			),
 			None => Self::flush_into(
 				&mut self.current_line,
-				&mut self.queue,
+				&mut self.comment,
 				&mut self.line_num,
 				self.indent,
 				&mut self.output,
@@ -103,35 +106,46 @@ where
 			line_num: 0,
 
 			current_line: Line::new(),
-			queue: Vec::new(),
+			comment: Line::new(),
 		}
-	}
-
-	#[inline(always)]
-	pub fn write_newline(&mut self) -> std::io::Result<()> {
-		self.line_num += 1;
-
-		self.current_line.write_newline()?;
-		self.flush()?;
-
-		Ok(())
 	}
 
 	#[inline]
 	pub fn take(&mut self) -> Line {
-		let res = self.current_line.clone();
+		let mut res = Line::new();
+
+		// let string = String::new();
+
+		if !self.comment.is_empty() {
+			res.extend_from_slice(&self.comment);
+
+			unsafe {
+				res.write_newline().unwrap_unchecked();
+				res.write_indent(self.indent).unwrap_unchecked();
+			};
+
+			self.comment.clear();
+
+			self.line_num += 1;
+		}
+
+		res.extend_from_slice(&self.current_line);
+
+		self.current_line.clear();
 
 		self.line_num += 1;
-		self.current_line.clear();
 
 		res
 	}
 
 	#[inline]
 	pub fn write_comment(&mut self, bytes: &[u8]) -> std::io::Result<()> {
-		let mut line = Line::new();
-		line.write_comment(bytes)?;
-		self.queue.push(line);
+		if !self.comment.is_empty() {
+			self.comment.write_newline()?;
+			self.comment.write_indent(self.indent)?;
+		}
+
+		self.comment.write_comment(bytes)?;
 
 		Ok(())
 	}
