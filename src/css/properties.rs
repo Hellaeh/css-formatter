@@ -235,6 +235,7 @@ group_css_props!({
 	Group::Typography => (10, FontFamily, "font-family"), // Sets the font family for an element
 	Group::Typography => (10, FontSize, "font-size"), // Sets the size of the font for an element
 	Group::Typography => (10, FontStyle, "font-style"), // Set the font style to normal, italic, or oblique
+	Group::Typography => (10, FontVariationSettings, "font-variation-settings"), // Provides low-level control over variable font characteristics
 	Group::Typography => (10, FontWeight, "font-weight"), // Sets the weight or thickness of the font
 	Group::Typography => (10, LineHeight, "line-height"), // Sets the vertical spacing between lines of text
 	Group::Typography => (20, FontFeatureSettings, "font-feature-settings"), // Allows control over advanced typographic features in OpenType fonts

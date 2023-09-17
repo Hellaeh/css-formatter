@@ -235,7 +235,7 @@ impl<'a> Parser<'a> {
 			let cur = unsafe { bytes.get_unchecked(self.pos()) };
 
 			if !matches!(cur, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_') {
-				if matches!(cur, b'(') {
+				if cur == &b'(' && opening != b'@' {
 					is_function = true;
 					// Consume opening paren
 					self.advance(1);

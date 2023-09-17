@@ -1,5 +1,5 @@
-#![feature(variant_count)]
 #![feature(byte_slice_trim_ascii)]
+#![feature(variant_count)]
 
 use std::io::{Read, Write};
 

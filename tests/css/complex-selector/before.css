@@ -1,6 +1,11 @@
-a:is([href*="path1"]:not([href~="path3"]), [href*="path2"]:not([href~="path4"])) {
-	background: red;
-
-	color: white;
+a:is([href*="path1"]:not([href~="path3"]),[href*="path2"]:not([href~="path4"])) {
+  color: red;
 }
 
+a+b {
+  color: red;
+}
+
+a~b {
+  color: red;
+}

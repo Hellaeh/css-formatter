@@ -44,6 +44,11 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.flush()?;
 				}
 
+				Token::Semicolon => {
+					self.context.write_u8(b';')?;
+					self.context.flush()?;
+				}
+
 				Token::Comment(bytes) => self.context.write_comment(bytes)?,
 
 				// Selector `div` or `.some-class` or `#some_id`
@@ -96,7 +101,9 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 		self.context.write_all(bytes)?;
 
-		self.tokens.next_with_whitespace()?;
+		self.context.write_space()?;
+
+		self.tokens.next()?;
 
 		loop {
 			match self.tokens.current() {
@@ -117,15 +124,35 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				// Token::Colon => ,
 				Token::Semicolon => {
 					self.context.write_u8(b';')?;
+					self.context.flush()?;
+
+					if matches!(self.tokens.peek_next(), Ok(Token::Whitespace)) {
+						unsafe { self.tokens.next_with_whitespace().unwrap_unchecked() };
+					}
+
+					if self.tokens.peek_next().is_ok() {
+						self.context.flush()?;
+					}
+
+					return Ok(());
+				}
+
+				Token::Colon => {
+					self.context.write_u8(b':')?;
+
+					if !matches!(self.tokens.peek_next(), Ok(Token::Whitespace)) {
+						self.context.write_space()?;
+					}
 				}
 
 				// Token::Comma => todo!(),
-				Token::BracketRoundOpen => todo!(),
-				Token::BracketRoundClose => todo!(),
-				Token::BracketSquareOpen => todo!(),
-				Token::BracketSquareClose => todo!(),
-				Token::BracketCurlyOpen => todo!(),
-				Token::BracketCurlyClose => todo!(),
+				Token::BracketRoundOpen => self.context.write_u8(b'(')?,
+				Token::BracketRoundClose => self.context.write_u8(b')')?,
+
+				Token::BracketCurlyOpen => {
+					self.format_block()?;
+					return Ok(());
+				}
 
 				token => return Err(Error::UnexpectedToken(token)),
 			}
@@ -309,16 +336,28 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.write_all(bytes)?
 				}
 
+				Token::Delim(del) => self.context.write_u8(del)?,
+
 				// `content: ":)";`
 				Token::String(bytes) => self.format_string(bytes)?,
 
 				// `background: var(--some-var), blue;`
-				Token::Comma => self.context.write_all(b", ")?,
+				Token::Comma => {
+					self.context.write_u8(b',')?;
+					self.context.write_space()?;
+
+					self.tokens.next()?;
+
+					continue;
+				}
 
 				// `color: blue;`
 				Token::Colon => {
 					self.context.write_u8(b':')?;
-					self.context.write_space()?;
+
+					if !matches!(self.tokens.peek_next(), Ok(Token::Whitespace)) {
+						self.context.write_space()?;
+					}
 				}
 
 				unexpected => return Err(Error::UnexpectedToken(unexpected)),
@@ -353,6 +392,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.write_u8(b',')?;
 					self.context.write_space()?;
 				}
+
+				Token::String(bytes) => self.format_string(bytes)?,
 
 				Token::Comment(bytes) => self.context.write_comment(bytes)?,
 
@@ -406,6 +447,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				| Token::Ident(_)
 				| Token::Number(_)
 				| Token::Whitespace
+				| Token::AtRule(_)
+				| Token::Colon
 		) && matches!(
 			next,
 			Token::BracketSquareOpen
