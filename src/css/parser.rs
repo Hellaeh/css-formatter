@@ -39,7 +39,6 @@ pub enum Error {
 	BadString,
 	EOF,
 	NonASCII,
-	// NotANumber,
 }
 
 /// An opinionated parser for opinionated CSS formatter

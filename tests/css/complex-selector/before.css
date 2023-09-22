@@ -1,11 +1,23 @@
-a:is([href*="path1"]:not([href~="path3"]),[href*="path2"]:not([href~="path4"])) {
-  color: red;
+a+b{
+	color: red;
 }
 
-a+b {
-  color: red;
+a~ b{
+	color: red;
 }
 
-a~b {
-  color: red;
+a:is([href*="path1"]: not([href~="path3"]),
+
+	[href*="path2"]:not([href~="path4"])
+) {
+	color:  red;
 }
+
+*:has(div>span>.some-class, span>span>#some-id, [class*="some_class"]:has(div, span, a, p, .child, #child)) {
+	color: red;
+}
+
+super deep and long selector that you can break into smaller parts and also exceeds any length limit possible {
+	color: red;
+}
+

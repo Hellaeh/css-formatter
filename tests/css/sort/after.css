@@ -11,8 +11,8 @@
 	width: 100%;
 	border: 1px solid var(--some-color);
 
-	background: #fff;
 	translate: 100%;
+	background: #fff;
 
 	color: white;
 	font-family: Arial, Helvetica, sans-serif;

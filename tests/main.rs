@@ -1,16 +1,12 @@
 use utils::*;
 
 #[test]
-fn test_all_except_big() {
+fn test_all() {
 	use hel_colored::Colored;
 
 	let mut failed = 0;
 
 	for (num, (name, before, after)) in get_test_cases().enumerate() {
-		// if name.contains("big") {
-		// 	continue;
-		// }
-
 		print!(
 			"{}",
 			format!("Test {}: {} - ", num + 1, name.yellow()).green()

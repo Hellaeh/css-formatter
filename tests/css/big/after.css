@@ -307,13 +307,11 @@ summary::marker {
 
 ::selection {
   background: var(--blue-400);
-  /* WebKit/Blink Browsers */
-}
+  }
 
 ::-moz-selection {
   background: var(--blue-400);
-  /* Gecko Browsers */
-}
+  }
 
 summary {
   color: var(--black);
@@ -1757,7 +1755,6 @@ pre>code {
   overflow-y: scroll;
 }
 
-/* Benefit row */
 
 .container-benefit {
   display: grid;
@@ -1836,7 +1833,6 @@ pre>code {
 }
 
 
-/* Benefit org row */
 
 .container-benefit-org {
   display: grid;
@@ -1851,7 +1847,6 @@ pre>code {
   }
 }
 
-/* Benefit org row */
 
 .container-why-org {
   display: grid;
@@ -1889,7 +1884,6 @@ pre>code {
 }
 
 
-/* Hero */
 .hero-container {
   display: grid;
   grid-template-columns: 1fr;
@@ -2008,7 +2002,6 @@ pre>code {
   }
 }
 
-/* Hero */
 .hero-subcontainer {
   display: flex;
   flex-direction: column-reverse;
@@ -2432,7 +2425,6 @@ pre>code {
 
 
 
-/* Hero */
 .hero-container-2 {
   display: grid;
   grid-template-columns: 1fr;
@@ -2452,7 +2444,6 @@ pre>code {
 
 
 
-/* Hero 2 */
 
 
 
@@ -2503,7 +2494,6 @@ pre>code {
   animation-name: in-circle-swoop;
 }
 
-/* hero image transition css */
 
 #cf3 {
   position: relative;
@@ -2633,7 +2623,6 @@ pre>code {
   }
 }
 
-/* ---------------- */
 
 .hero-image-2 {
   margin-left: 0rem;
@@ -2653,9 +2642,7 @@ pre>code {
   display: flex;
 }
 
-/* What section */
 
-/* Hero */
 
 
 .what-container {
@@ -2677,7 +2664,6 @@ pre>code {
 }
 
 
-/* Deploy section */
 
 
 .deploy-wrapper {
@@ -2705,7 +2691,6 @@ pre>code {
   max-width: 350px;
 }
 
-/* Integration banner */
 
 
 .integation-banner-wrapper {
@@ -2930,7 +2915,6 @@ pre>code {
 }
 
 
-/* Homepage */
 
 .hero-grid {
   display: grid;
@@ -3744,7 +3728,6 @@ details[open]>summary {
 
 
 
-/* Hero big image */
 .scrolling-wrapper-flexbox {
   align-items: stretch;
   display: flex;
@@ -3775,7 +3758,6 @@ details[open]>summary {
   display: none;
 }
 
-/* Stats */
 
 .stats {
   display: grid;
@@ -3802,7 +3784,6 @@ details[open]>summary {
 }
 
 
-/* Trust by logos */
 
 
 .trusted-by-logos-grid {
@@ -3905,7 +3886,6 @@ details[open]>summary {
   }
 }
 
-/* use cases */
 
 .use-cases-tabs {
   display: flex;
@@ -3926,13 +3906,11 @@ details[open]>summary {
 
 
 
-/* List */
 .list-tabs {
   border-bottom: 1px solid var(--gray-700);
   align-items: center;
 }
 
-/* Testimonial block */
 
 .hero-testimonial {
   display: grid;
@@ -3945,7 +3923,6 @@ details[open]>summary {
   border-radius: 8px;
 }
 
-/* Hero */
 .testimonial-card-container {
   display: grid;
   grid-template-columns: 1fr 120px;
@@ -4003,7 +3980,6 @@ details[open]>summary {
   grid-row: span 2;
 }
 
-/* FAQ */
 
 .faq {
   display: grid;
@@ -4026,7 +4002,6 @@ details[open]>summary {
   align-items: center;
 }
 
-/* Our story - Value */
 
 .value {
   display: grid;
@@ -4058,7 +4033,6 @@ details[open]>summary {
   gap: 2rem 4.25rem;
 }
 
-/* Footer */
 .list-group {
   list-style: none;
 }
@@ -4235,7 +4209,6 @@ details[open]>summary {
   }
 }
 
-/* Changelog */
 
 .changelog-header {
   padding: 12px 24px 10px;
@@ -4245,7 +4218,6 @@ details[open]>summary {
   background-repeat: no-repeat;
 }
 
-/* Enterprise */
 .enterprise-image {
   aspect-ratio: 3 / 1;
   object-fit: cover;
@@ -4450,7 +4422,6 @@ details[open]>summary {
   order: 12;
 }
 
-/* People */
 
 .people-container {
   display: grid;
@@ -4522,7 +4493,6 @@ details[open]>summary {
 }
 
 
-/* Pricing */
 
 .pricing {
   display: flex;
@@ -4633,7 +4603,6 @@ details[open]>summary {
   max-width: 500px;
 }
 
-/* Hero */
 .pricing-hero {
   display: grid;
   grid-template-columns: 1fr;
@@ -4683,7 +4652,6 @@ details[open]>summary {
   }
 }
 
-/* Style the tab */
 .tab {
   overflow: hidden;
   background-color: transparent;
@@ -4693,7 +4661,6 @@ details[open]>summary {
   padding: 5px;
 }
 
-/* Style the buttons that are used to open the tab content */
 .tab button {
   display: inline-block;
   font-size: 15px;
@@ -4737,13 +4704,11 @@ details[open]>summary {
 
 
 
-/* Change background color of buttons on hover */
 .tab button:hover {
   background-color: transparent;
   color: var(--gray-1300);
 }
 
-/* Create an active/current tablink class */
 .tab button.active {
   background-color: var(--gray-400);
   color: var(--hiContrast);
@@ -4754,19 +4719,16 @@ details[open]>summary {
   margin-top: 70px;
 }
 
-/* Style the tab content */
 .tabcontent {
   display: none;
 }
 
-/* Style the tab */
 .herotab {
   overflow: hidden;
   background-color: transparent;
   display: flex;
 }
 
-/* Style the buttons that are used to open the tab content */
 .herotab button {
   display: inline-block;
   font-size: 17px;
@@ -4789,12 +4751,10 @@ details[open]>summary {
   opacity: .5;
 }
 
-/* Change background color of buttons on hover */
 .herotab button:hover {
   opacity: .8;
 }
 
-/* Create an active/current tablink class */
 .herotab button.active {
   opacity: 1;
 }
@@ -5100,7 +5060,6 @@ ul {
   align-items: center;
 }
 
-/* End users section */
 .end-users-container {
   background-color: var(--gray-600);
 }
@@ -5112,7 +5071,6 @@ ul {
   }
 }
 
-/* Platform */
 
 .featured-feature-wrapper {
   display: grid;
@@ -5298,7 +5256,6 @@ ul {
 
 
 
-/* List grid */
 
 .list-grid {
   position: relative;
@@ -5396,7 +5353,6 @@ ul {
   text-rendering: optimizelegibility;
 }
 
-/* Feature */
 
 .feature-grid {
   position: relative;
@@ -5532,7 +5488,6 @@ ul {
   aspect-ratio: 2/1;
 }
 
-/* Templates */
 
 .template-icon-container {
   background-color: var(--gray-600);
@@ -5555,7 +5510,6 @@ ul {
 }
 
 
-/* Promo banner */
 
 .promo-banner {
   display: none;
@@ -5604,7 +5558,6 @@ ul {
 }
 
 
-/* shortcodes */
 
 
 .cta-shortcode {
@@ -5632,7 +5585,6 @@ ul {
 }
 
 
-/* Product content container */
 
 .product-content-container {
   display: grid;
@@ -5654,7 +5606,6 @@ ul {
   margin: auto;
 }
 
-/* Community */
 
 .community-wallpaper {
   object-position: center center;
@@ -5702,7 +5653,6 @@ ul {
 
 
 
-/* Image gallery */
 .benefits-new-container {
   margin: auto;
   display: grid;
@@ -5724,7 +5674,6 @@ ul {
 }
 
 
-/* extensibility container */
 
 .col-3 {
   margin: auto;
@@ -7183,8 +7132,7 @@ iframe {
 }
 
 .btn:focus-visible {
-  /* Don't animate the shadow, if present */
-  transition: none;
+    transition: none;
   box-shadow: 0 0 0 2px transparent, 0 0 0 4px var(--blue-500);
 }
 
@@ -7283,8 +7231,7 @@ fieldset:disabled a.btn {
 .btn-400 {
   width: 400px;
 }
-  /* Hubspot form controls */
-
+  
 .form-columns-1 {
   margin-bottom: 20px !important;
   margin-right: 0 !important;
@@ -10874,8 +10821,7 @@ button.bg-blue:focus {
     align-items: center;
   }
 
-  /* Navbar */
-  .u-header__navbar {
+    .u-header__navbar {
     padding: 0;
   }
 
@@ -10903,8 +10849,7 @@ button.bg-blue:focus {
     margin-left: auto;
   }
 
-  /* Nav Item */
-
+  
 
 
   .u-header__nav-item:hover .u-header__nav-link,
@@ -10912,8 +10857,7 @@ button.bg-blue:focus {
     color: var(--gray-1200);
   }
 
-  /* Nav Link */
-  .u-header__nav-link {
+    .u-header__nav-link {
     color: var(--hiContrast);
     font-size: var(--fontsize-5);
     -webkit-box-align: center;
@@ -10969,21 +10913,18 @@ button.bg-blue:focus {
 
 
 
-  /* Nav Item dark */
-  .u-header__nav-item-dark:hover .u-header__nav-link-dark,
+    .u-header__nav-item-dark:hover .u-header__nav-link-dark,
   .u-header__nav-item-dark:focus .u-header__nav-link-dark {
     color: #ffffff;
   }
 
-  /* Nav Item gradient */
-  .u-header__nav-item-gradient:hover .u-header__nav-link-gradient,
+    .u-header__nav-item-gradient:hover .u-header__nav-link-gradient,
   .u-header__nav-item-gradient:focus .u-header__nav-link-gradient {
     background: #ffffff10;
     padding: 5px 10px;
   }
 
-  /* Nav Link */
-  .u-header__nav-link-dark {
+    .u-header__nav-link-dark {
     color: #cccccc;
     font-size: 16px;
     font-weight: 600;
@@ -11000,8 +10941,7 @@ button.bg-blue:focus {
     color: var(--blue-600);
   }
 
-  /* Sub Menu */
-  .u-header__sub-menu-title {
+    .u-header__sub-menu-title {
     display: block;
     color: var(--gray-1200);
     font-size: 1rem;
@@ -11083,8 +11023,7 @@ button.bg-blue:focus {
     color: var(--gray-500);
   }
 
-  /* Search */
-  .u-header__search-addon {
+    .u-header__search-addon {
     border: none;
   }
 
@@ -11093,8 +11032,7 @@ button.bg-blue:focus {
     border-bottom-left-radius: 0;
   }
 
-  /* Header Fix Top */
-  .u-header--fix-top {
+    .u-header--fix-top {
     position: fixed;
   }
 
@@ -13022,8 +12960,7 @@ button.bg-blue:focus {
     padding-right: 1rem;
   }
 
-  /* Small devices */
-  @media (min-width: 600px) {
+    @media (min-width: 600px) {
     .u-header--floating-sm {
       position: absolute;
       right: 0;
@@ -13057,8 +12994,7 @@ button.bg-blue:focus {
     }
   }
 
-  /* Medium devices */
-  @media (min-width: 800px) {
+    @media (min-width: 800px) {
     .u-header--floating-md {
       position: absolute;
       right: 0;
@@ -13092,8 +13028,7 @@ button.bg-blue:focus {
     }
   }
 
-  /* Large devices */
-  @media (min-width: 1000px) {
+    @media (min-width: 1000px) {
     .u-header--floating-lg {
       position: absolute;
       right: 0;
@@ -13127,8 +13062,7 @@ button.bg-blue:focus {
     }
   }
 
-  /* Extra Large devices */
-  @media (min-width: 1200px) {
+    @media (min-width: 1200px) {
     .u-header--floating-xl {
       position: absolute;
       right: 0;
@@ -13550,8 +13484,7 @@ button.bg-blue:focus {
     background-color: transparent !important;
   }
 
-  /* Disable box-shadow on mobile device */
-  .u-header--abs-top-2nd-screen:not(.js-header-fix-moment) [class*="navbar-expand"] .u-header__navbar-nav .u-header__sub-menu,
+    .u-header--abs-top-2nd-screen:not(.js-header-fix-moment) [class*="navbar-expand"] .u-header__navbar-nav .u-header__sub-menu,
   .u-header--abs-bottom:not(.js-header-fix-moment) [class*="navbar-expand"] .u-header__navbar-nav .u-header__sub-menu {
     box-shadow: none;
   }
@@ -13873,8 +13806,7 @@ button.bg-blue:focus {
     background-color: transparent !important;
   }
 
-  /* Disable box-shadow on mobile device */
-  .u-header--sticky-bottom:not(.js-header-fix-moment) [class*="navbar-expand"] .u-header__navbar-nav .u-header__sub-menu {
+    .u-header--sticky-bottom:not(.js-header-fix-moment) [class*="navbar-expand"] .u-header__navbar-nav .u-header__sub-menu {
     box-shadow: none;
   }
 
@@ -17238,8 +17170,7 @@ button.bg-blue:focus {
 
   .article-space-top {
     scroll-padding-top: 70px;
-    /* height of sticky header */
-  }
+      }
 
   .article-grid {
     display: grid;
@@ -17300,10 +17231,8 @@ button.bg-blue:focus {
     content: "";
     display: block;
     height: 60px;
-    /* fixed header height*/
-    margin: -60px 0 0;
-    /* negative fixed header height */
-  }
+        margin: -60px 0 0;
+      }
 
   @media (min-width: 800px) {
     .article h1 {
@@ -17321,10 +17250,8 @@ button.bg-blue:focus {
       content: "";
       display: block;
       height: 60px;
-      /* fixed header height*/
-      margin: -60px 0 0;
-      /* negative fixed header height */
-    }
+            margin: -60px 0 0;
+          }
   }
 
   .article h2 {
@@ -17342,10 +17269,8 @@ button.bg-blue:focus {
     content: "";
     display: block;
     height: 40px;
-    /* fixed header height*/
-    margin: -40px 0 0;
-    /* negative fixed header height */
-  }
+        margin: -40px 0 0;
+      }
 
   @media (min-width: 800px) {
   .article h2 {
@@ -17363,10 +17288,8 @@ button.bg-blue:focus {
     content: "";
     display: block;
     height: 40px;
-    /* fixed header height*/
-    margin: -40px 0 0;
-    /* negative fixed header height */
-  }
+        margin: -40px 0 0;
+      }
   }
 
   .article h3 {
@@ -17383,10 +17306,8 @@ button.bg-blue:focus {
     content: "";
     display: block;
     height: 40px;
-    /* fixed header height*/
-    margin: -40px 0 0;
-    /* negative fixed header height */
-  }
+        margin: -40px 0 0;
+      }
 
   .article h4 {
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif;
@@ -17402,10 +17323,8 @@ button.bg-blue:focus {
     content: "";
     display: block;
     height: 60px;
-    /* fixed header height*/
-    margin: -60px 0 0;
-    /* negative fixed header height */
-  }
+        margin: -60px 0 0;
+      }
 
   .article h5 {
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif;

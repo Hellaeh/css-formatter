@@ -1,42 +1,48 @@
 #![feature(byte_slice_trim_ascii)]
 #![feature(variant_count)]
 
-use std::io::{Read, Write};
+use std::io::Read;
 
 fn main() -> std::io::Result<()> {
 	let mut args = std::env::args();
 
+	let mut writer = std::io::BufWriter::new(std::io::stdout());
+
 	for arg in args.by_ref() {
 		if arg == "--input" {
-			break;
+			let Some(input) = args.next() else {
+				panic!("No input were provided");
+			};
+
+			if input.is_empty() {
+				panic!("Empty input string");
+			}
+
+			if let Err(error) = css::format(&input, &mut writer) {
+				eprintln!("Error: {error:?}");
+				std::process::exit(1);
+			};
+
+			return Ok(());
 		}
 	}
 
-	let Some(input) = args.next().or_else(|| {
-		let mut res = String::new();
-		let mut reader = std::io::BufReader::new(std::io::stdin());
+	loop {
+		let mut input = String::new();
 
-		reader
-			.read_to_string(&mut res)
-			.unwrap_or_else(|e| panic!("Error while reading stdin: {e:?}"));
+		std::io::stdin().read_to_string(&mut input)?;
 
-		Some(res)
-	}) else {
-		panic!("No input were provided");
-	};
+		if input.is_empty() {
+			break;
+		};
 
-	if input.is_empty() {
-		panic!("Empty input string");
+		if let Err(error) = css::format(&input, &mut writer) {
+			eprintln!("Error: {error:?}");
+			std::process::exit(1);
+		};
 	}
 
-	let mut output = Vec::with_capacity(input.len());
-
-	if let Err(error) = css::format(&input, &mut output) {
-		eprintln!("Error: {error:?}");
-		std::process::exit(1);
-	};
-
-	std::io::stdout().write_all(&output)
+	Ok(())
 }
 
 pub mod css;

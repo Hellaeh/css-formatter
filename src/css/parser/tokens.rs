@@ -18,11 +18,17 @@ impl<'a> Tokens<'a> {
 	pub fn new(mut parser: Parser<'a>) -> Result<Self> {
 		let current = parser.next()?;
 
-		Ok(Self {
+		let mut tokens = Self {
 			parser,
 			current,
 			prev: None,
-		})
+		};
+
+		while tokens.current() == Token::Whitespace {
+			tokens.next()?;
+		}
+
+		Ok(tokens)
 	}
 
 	#[inline]
@@ -50,7 +56,7 @@ impl<'a> Tokens<'a> {
 	}
 
 	#[inline(always)]
-	pub fn peek_next(&mut self) -> Result<Token<'a>> {
+	pub fn peek_next_with_whitespace(&mut self) -> Result<Token<'a>> {
 		self.parser.peek_next()
 	}
 

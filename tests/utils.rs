@@ -2,8 +2,12 @@ pub fn format(css: &str) -> Result<(String, String), (String, String)> {
 	use std::io::Write;
 	use std::process::*;
 
-	let mut child = Command::new("cargo")
-		.args(["run"])
+	#[cfg(debug_assertions)]
+	const PATH: &str = "./target/debug/hel-css-formatter.exe";
+	#[cfg(not(debug_assertions))]
+	const PATH: &str = "./target/release/hel-css-formatter.exe";
+
+	let mut child = Command::new(PATH)
 		.stdout(Stdio::piped())
 		.stderr(Stdio::piped())
 		.stdin(Stdio::piped())
@@ -59,6 +63,7 @@ pub fn get_test_cases() -> impl Iterator<Item = (String, String, String)> {
 		})
 }
 
+#[derive(Debug)]
 pub struct Difference<'a> {
 	pub row: usize,
 	pub col: usize,

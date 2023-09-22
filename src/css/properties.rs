@@ -18,7 +18,7 @@ pub enum Group {
 	Variable = u8::MAX - 1,
 
 	// Some other weird stuff idk
-	Custom = u8::MAX,
+	Unknown = u8::MAX,
 }
 
 /// A CSS property descriptor
@@ -64,17 +64,21 @@ group_css_props!({
 	Group::Animation => (3, AnimationPlayState, "animation-play-state"), // Sets the animation play state to running or paused
 
 	Group::BoxModel => (10, BoxSizing, "box-sizing"), // Sets how element height and width are calculated
+	Group::BoxModel => (10, AspectRatio, "aspect-ratio"),
 	Group::BoxModel => (11, Height, "height"), // Sets the height of an element
 	Group::BoxModel => (11, Width, "width"), // Sets the width of an element
 	Group::BoxModel => (12, MaxHeight, "max-height"), // Sets the maximumn height for an element
 	Group::BoxModel => (12, MaxWidth, "max-width"), // Sets the maximum width for an element
 	Group::BoxModel => (12, MinHeight, "min-height"), // Sets the minimum height for an element
 	Group::BoxModel => (12, MinWidth, "min-width"), // Sets the minimum width for an element
-	Group::BoxModel => (20, Margin , "margin"), // Sets the margin (outside spacing), for an element
-	Group::BoxModel => (21, MarginTop , "margin-top"), // Sets the top margin (outside spacing), for an element
-	Group::BoxModel => (22, MarginRight , "margin-right"), // Sets the right margin (outside spacing), for an element
-	Group::BoxModel => (23, MarginBottom , "margin-bottom"), // Sets the bottom margin (outside spacing), for an element
-	Group::BoxModel => (24, MarginLeft , "margin-left"), // Sets the left margin (outside spacing), for an element
+	Group::BoxModel => (20, Margin, "margin"), // Sets the margin (outside spacing), for an element
+	Group::BoxModel => (21, MarginTop, "margin-top"), // Sets the top margin (outside spacing), for an element
+	Group::BoxModel => (22, MarginRight, "margin-right"), // Sets the right margin (outside spacing), for an element
+	Group::BoxModel => (23, MarginBottom, "margin-bottom"), // Sets the bottom margin (outside spacing), for an element
+	Group::BoxModel => (24, MarginLeft, "margin-left"), // Sets the left margin (outside spacing), for an element
+	Group::BoxModel => (25, MarginBlock, "margin-block"), // Defines the logical block start margin of an element
+	Group::BoxModel => (25, MarginBlockStart, "margin-block-start"), // Defines the logical block start margin of an element
+	Group::BoxModel => (251, MarginBlockEnd, "margin-block-end"), // Defines the logical block start margin of an element
 	Group::BoxModel => (30, Border, "border"), // Specifies a border for an element
 	Group::BoxModel => (30, BorderWidth, "border-width"), // Sets the border width of the element
 	Group::BoxModel => (31, BorderTop, "border-top"), // Sets the top border of the element
@@ -90,68 +94,69 @@ group_css_props!({
 	Group::BoxModel => (42, PaddingRight, "padding-right"), // Sets the spacing between content and right element border
 	Group::BoxModel => (43, PaddingBottom, "padding-bottom"), // Sets the spacing between content and bottom element border
 	Group::BoxModel => (44, PaddingLeft, "padding-left"), // Sets the spacing between content and left element border
+	Group::BoxModel => (45, PaddingInlineStart, "padding-inline-start"),
 
-	Group::Display => (100, Visibility, "visibility"), // Specifies the visibility of an element
-	Group::Display => (101, Opacity, "opacity"), // Sets the opacity (transparency), of the element
-	Group::Display => (101, Overflow, "overflow"), // Specifies the flow of content that exceeds the container
-	Group::Display => (101, OverflowX, "overflow-x"), // Specifies the flow of content that exceeds the container width
-	Group::Display => (101, OverflowY, "overflow-y"), // Specifies the flow of content that exceeds the container height
-	Group::Display => (101, Transform, "transform"), // Applies a 2D or 3D transformation to an element
-	Group::Display => (101, TransformOrigin, "transform-origin"), // Sets the origin for the transformation of the element
-	Group::Display => (101, TransformStyle, "transform-style"), // Specifies the display behavior of 3D space nested elements
-	Group::Display => (1010, Translate, "translate"), // Allows you to specify translation transforms individually and independently of the transform property
-	Group::Display => (1010, Scale, "scale"), // Allows you to specify scale transforms individually and independently of the transform property
-	Group::Display => (1010, Rotate, "rotate"), // Allows you to specify rotation transforms individually and independently of the transform property
-	Group::Display => (102, BoxShadow, "box-shadow"), // Adds a shadow effect to an element
-	Group::Display => (102, CaretColor, "caret-color"), // Sets the color of the blinking mouse caret
-	Group::Display => (102, ClipPath, "clip-path"), // Clips an element inside a specific shape or SVG
-	Group::Display => (102, Cursor, "cursor"), // Specifies the shape of the mouse cursor
-	Group::Display => (102, Filter, "filter"), // Defines effects (e.g. blurring or color shifting) on an element before the element is displayed
-	Group::Display => (110, Perspective, "perspective"), // Adds perspective to a 3DPositioned element
-	Group::Display => (110, PerspectiveOrigin, "perspective-origin"), // Sets the origin of the perspective for a 3DPositioned element
-	Group::Display => (120, AccentColor, "accent-color"), // Specifies the color to be used as the accent color.
-	Group::Display => (200, Background, "background"), // Sets the background of an element
-	Group::Display => (200, BackgroundColor, "background-color"), // Sets the background color of the element
-	Group::Display => (201, BackgroundAttachment, "background-attachment"), // Defines how the background is attached to an element
-	Group::Display => (201, BackgroundBlendMode, "background-blend-mode"), // Defines the background layer blending mode
-	Group::Display => (201, BackgroundClip, "background-clip"), // Defines how background extends beyond the element
-	Group::Display => (201, BackgroundImage, "background-image"), // Specifies a background image for an element
-	Group::Display => (201, BackgroundOrigin, "background-origin"), // Specifies the background image origin position
-	Group::Display => (201, BackgroundPosition, "background-position"), // Sets the position of a background image
-	Group::Display => (201, BackgroundRepeat, "background-repeat"), // Specifies how the background image is repeated
-	Group::Display => (201, BackgroundSize, "background-size"), // Sets the size of the background image
-	Group::Display => (202, BackdropFilter, "backdrop-filter"), // Defines a graphical effect to the area behind an element
-	Group::Display => (202, BackfaceVisibility, "backface-visibility"), // Shows or hides the backface visibility of an element
-	Group::Display => (300, BorderColor, "border-color"), // Sets the color of the border
-	Group::Display => (300, BorderImage, "border-image"), // Defines an image as border, instead of a color
-	Group::Display => (300, BorderImageOutset, "border-image-outset"), // Sets how far a border image extends beyond the border
-	Group::Display => (300, BorderImageRepeat, "border-image-repeat"), // Defines if and how the border image is repeated
-	Group::Display => (300, BorderImageSlice, "border-image-slice"), // Defines how the border image will be sliced
-	Group::Display => (300, BorderImageSource, "border-image-source"), // Specifies the url of the border image file
-	Group::Display => (300, BorderImageWidth, "border-image-width"), // Sets the width of the image border
-	Group::Display => (300, BorderRadius, "border-radius"), // Sets the radius of the border
-	Group::Display => (300, BorderStyle, "border-style"), // Defines the style of the border
-	Group::Display => (301, BorderTopColor, "border-top-color"), // Sets the color of the top border
-	Group::Display => (301, BorderTopLeftRadius, "border-top-left-radius"), // Sets the border radius of the top left corner
-	Group::Display => (301, BorderTopRightRadius, "border-top-right-radius"), // Sets the border radius of the top right corner
-	Group::Display => (301, BorderTopStyle, "border-top-style"), // Sets the style of the top border
-	Group::Display => (302, BorderRightColor, "border-right-color"), // Sets the color of the right border
-	Group::Display => (302, BorderRightStyle, "border-right-style"), // Sets the style of the right border
-	Group::Display => (303, BorderBottomColor, "border-bottom-color"), // Sets the color of a bottom border
-	Group::Display => (303, BorderBottomLeftRadius, "border-bottom-left-radius"), // Sets the border radius of the bottom left corner
-	Group::Display => (303, BorderBottomRightRadius, "border-bottom-right-radius"), // Sets the border radius of the bottom right corner
-	Group::Display => (303, BorderBottomStyle, "border-bottom-style"), // Sets the style of the bottom border
-	Group::Display => (304, BorderLeftColor, "border-left-color"), // Sets the color of the left border
-	Group::Display => (304, BorderLeftStyle, "border-left-style"), // Sets the style of the left border
-	Group::Display => (400, Outline , "outline"), // Adds an outline (highlighted border), to an element
-	Group::Display => (400, OutlineColor, "outline-color"), // Sets the color of an outline
-	Group::Display => (400, OutlineOffset, "outline-offset"), // Sets the space between the outline and border
-	Group::Display => (400, OutlineStyle, "outline-style"), // Sets the style of an outline
-	Group::Display => (400, OutlineWidth, "outline-width"), // Sets the width of an outline
-	Group::Display => (500, ListStyle, "list-style"), // Defines the markers (bullet points), for items in a list
-	Group::Display => (500, ListStyleImage, "list-style-image"), // Defines an image markers (bullet points), for items in a list
-	Group::Display => (500, ListStylePosition, "list-style-position"), // Sets the marker (bullet point), positions for items in a list
-	Group::Display => (500, ListStyleType , "list-style-type"), // Defines the marker types (bullet points), for items in a list
+	Group::Display => (1000, Visibility, "visibility"), // Specifies the visibility of an element
+	Group::Display => (1010, Opacity, "opacity"), // Sets the opacity (transparency), of the element
+	Group::Display => (1010, Overflow, "overflow"), // Specifies the flow of content that exceeds the container
+	Group::Display => (1010, OverflowX, "overflow-x"), // Specifies the flow of content that exceeds the container width
+	Group::Display => (1010, OverflowY, "overflow-y"), // Specifies the flow of content that exceeds the container height
+	Group::Display => (1010, Transform, "transform"), // Applies a 2D or 3D transformation to an element
+	Group::Display => (1010, TransformOrigin, "transform-origin"), // Sets the origin for the transformation of the element
+	Group::Display => (1010, TransformStyle, "transform-style"), // Specifies the display behavior of 3D space nested elements
+	Group::Display => (1011, Translate, "translate"), // Allows you to specify translation transforms individually and independently of the transform property
+	Group::Display => (1011, Scale, "scale"), // Allows you to specify scale transforms individually and independently of the transform property
+	Group::Display => (1011, Rotate, "rotate"), // Allows you to specify rotation transforms individually and independently of the transform property
+	Group::Display => (1020, BoxShadow, "box-shadow"), // Adds a shadow effect to an element
+	Group::Display => (1020, CaretColor, "caret-color"), // Sets the color of the blinking mouse caret
+	Group::Display => (1020, ClipPath, "clip-path"), // Clips an element inside a specific shape or SVG
+	Group::Display => (1020, Cursor, "cursor"), // Specifies the shape of the mouse cursor
+	Group::Display => (1020, Filter, "filter"), // Defines effects (e.g. blurring or color shifting) on an element before the element is displayed
+	Group::Display => (1100, Perspective, "perspective"), // Adds perspective to a 3DPositioned element
+	Group::Display => (1100, PerspectiveOrigin, "perspective-origin"), // Sets the origin of the perspective for a 3DPositioned element
+	Group::Display => (1200, AccentColor, "accent-color"), // Specifies the color to be used as the accent color.
+	Group::Display => (2000, Background, "background"), // Sets the background of an element
+	Group::Display => (2000, BackgroundColor, "background-color"), // Sets the background color of the element
+	Group::Display => (2010, BackgroundAttachment, "background-attachment"), // Defines how the background is attached to an element
+	Group::Display => (2010, BackgroundBlendMode, "background-blend-mode"), // Defines the background layer blending mode
+	Group::Display => (2010, BackgroundClip, "background-clip"), // Defines how background extends beyond the element
+	Group::Display => (2010, BackgroundImage, "background-image"), // Specifies a background image for an element
+	Group::Display => (2010, BackgroundOrigin, "background-origin"), // Specifies the background image origin position
+	Group::Display => (2010, BackgroundPosition, "background-position"), // Sets the position of a background image
+	Group::Display => (2010, BackgroundRepeat, "background-repeat"), // Specifies how the background image is repeated
+	Group::Display => (2010, BackgroundSize, "background-size"), // Sets the size of the background image
+	Group::Display => (2020, BackdropFilter, "backdrop-filter"), // Defines a graphical effect to the area behind an element
+	Group::Display => (2020, BackfaceVisibility, "backface-visibility"), // Shows or hides the backface visibility of an element
+	Group::Display => (3000, BorderColor, "border-color"), // Sets the color of the border
+	Group::Display => (3000, BorderImage, "border-image"), // Defines an image as border, instead of a color
+	Group::Display => (3000, BorderImageOutset, "border-image-outset"), // Sets how far a border image extends beyond the border
+	Group::Display => (3000, BorderImageRepeat, "border-image-repeat"), // Defines if and how the border image is repeated
+	Group::Display => (3000, BorderImageSlice, "border-image-slice"), // Defines how the border image will be sliced
+	Group::Display => (3000, BorderImageSource, "border-image-source"), // Specifies the url of the border image file
+	Group::Display => (3000, BorderImageWidth, "border-image-width"), // Sets the width of the image border
+	Group::Display => (3000, BorderRadius, "border-radius"), // Sets the radius of the border
+	Group::Display => (3000, BorderStyle, "border-style"), // Defines the style of the border
+	Group::Display => (3010, BorderTopColor, "border-top-color"), // Sets the color of the top border
+	Group::Display => (3010, BorderTopLeftRadius, "border-top-left-radius"), // Sets the border radius of the top left corner
+	Group::Display => (3010, BorderTopRightRadius, "border-top-right-radius"), // Sets the border radius of the top right corner
+	Group::Display => (3010, BorderTopStyle, "border-top-style"), // Sets the style of the top border
+	Group::Display => (3020, BorderRightColor, "border-right-color"), // Sets the color of the right border
+	Group::Display => (3020, BorderRightStyle, "border-right-style"), // Sets the style of the right border
+	Group::Display => (3030, BorderBottomColor, "border-bottom-color"), // Sets the color of a bottom border
+	Group::Display => (3030, BorderBottomLeftRadius, "border-bottom-left-radius"), // Sets the border radius of the bottom left corner
+	Group::Display => (3030, BorderBottomRightRadius, "border-bottom-right-radius"), // Sets the border radius of the bottom right corner
+	Group::Display => (3030, BorderBottomStyle, "border-bottom-style"), // Sets the style of the bottom border
+	Group::Display => (3040, BorderLeftColor, "border-left-color"), // Sets the color of the left border
+	Group::Display => (3040, BorderLeftStyle, "border-left-style"), // Sets the style of the left border
+	Group::Display => (4000, Outline , "outline"), // Adds an outline (highlighted border), to an element
+	Group::Display => (4000, OutlineColor, "outline-color"), // Sets the color of an outline
+	Group::Display => (4000, OutlineOffset, "outline-offset"), // Sets the space between the outline and border
+	Group::Display => (4000, OutlineStyle, "outline-style"), // Sets the style of an outline
+	Group::Display => (4000, OutlineWidth, "outline-width"), // Sets the width of an outline
+	Group::Display => (5000, ListStyle, "list-style"), // Defines the markers (bullet points), for items in a list
+	Group::Display => (5000, ListStyleImage, "list-style-image"), // Defines an image markers (bullet points), for items in a list
+	Group::Display => (5000, ListStylePosition, "list-style-position"), // Sets the marker (bullet point), positions for items in a list
+	Group::Display => (5000, ListStyleType , "list-style-type"), // Defines the marker types (bullet points), for items in a list
 
 	Group::Layout => (100, Display, "display"), // Specify an element's display behavior
 	Group::Layout => (101, Clear, "clear"), // Sets the element side that does not allow floating elements
@@ -267,14 +272,18 @@ group_css_props!({
 	Group::Typography => (31, ColumnRuleWidth, "column-rule-width"), // Sets the width of a column divider
 	Group::Typography => (31, ColumnSpan, "column-span"), // Sets number of divided columns an element should span
 	Group::Typography => (31, ColumnWidth, "column-width"), // Specifies the width of a divided column
+	Group::Typography => (50, FontVariantLigatures, "font-variant-ligatures") // Controls which ligatures and contextual forms are used in textual content of the elements it applies to
 	Group::Typography => (50, Hyphens, "hyphens"), // Specifies hyphenation with wrap opportunities in a line of text
 	Group::Typography => (50, Quotes, "quotes"), // Defines the quotation marks to be used on text
 	Group::Typography => (50, TextDecoration, "text-decoration"), // Defines the style and color of underlined text
 	Group::Typography => (50, TextDecorationColor, "text-decoration-color"), // Defines the color of underlined text
 	Group::Typography => (50, TextDecorationLine, "text-decoration-line"), // Defines the kind of line to use with text
 	Group::Typography => (50, TextDecorationStyle, "text-decoration-style"), // Defines the style of underlined text
+	Group::Typography => (50, TextDecorationThickness, "text-decoration-thickness"), // Sets the stroke thickness of the decoration line
 	Group::Typography => (50, TextShadow, "text-shadow"), // Adds a shadow effect to text
 	Group::Typography => (50, TextTransform, "text-transform"), // Defines text capitalization or casing
+	Group::Typography => (50, TextUnderlineOffset, "text-underline-offset"), // Sets the offset distance of an underline text
+	Group::Typography => (60, TextRendering, "text-rendering") // Provides information to the rendering engine about what to optimize for when rendering text
 });
 
 impl<'a> Property {
@@ -300,8 +309,8 @@ impl<'a> Descriptor<'a> {
 	}
 
 	#[inline(always)]
-	pub fn custom(name: &'a str) -> Self {
-		Self::new(name, Group::Custom)
+	pub fn unknown(name: &'a str) -> Self {
+		Self::new(name, Group::Unknown)
 	}
 
 	#[inline(always)]
