@@ -6677,9 +6677,6 @@ ul {
   }
 }
 
-/*
-  Customers
-*/
 
 .customers-grid {
   display: grid;
@@ -9839,7 +9836,7 @@ button.bg-light:focus {
 }
 
 .bg-integrations {
-  background-image: url(https://res.cloudinary.com/daog6scxm/image/upload/o_40/v1654716425/wallpapers/blushing-fire_dogkso.png);
+  background-image: url("https://res.cloudinary.com/daog6scxm/image/upload/o_40/v1654716425/wallpapers/blushing-fire_dogkso.png");
   background-attachment: fixed;
   background-size: cover;
   width: 100%;
@@ -10749,9 +10746,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Borders
-------------------------------------*/
   .rounded-pill {
     border-radius: 6.1875rem !important;
   }
@@ -10761,9 +10755,6 @@ button.bg-blue:focus {
     background-color: #fff;
   }
 
-  /*------------------------------------
-  Accessibility
-------------------------------------*/
   :focus,
   a:focus,
   button:focus {
@@ -10791,9 +10782,6 @@ button.bg-blue:focus {
 
 
 
-  /*------------------------------------
-  Header Default
-------------------------------------*/
   .u-header {
     position: relative;
     right: 0;
@@ -11034,9 +11022,6 @@ button.bg-blue:focus {
     transition: none;
   }
 
-  /*------------------------------------
-  Header Helpers
-------------------------------------*/
   .u-header--invisible {
     display: none;
   }
@@ -11069,9 +11054,6 @@ button.bg-blue:focus {
     bottom: auto;
   }
 
-  /*------------------------------------
-  Transparent Header
-------------------------------------*/
   @media (min-width: 1000px) {
     .u-header--bg-transparent:not(.js-header-fix-moment):not(.u-scrolled) .u-header__section {
       background-color: transparent;
@@ -11106,9 +11088,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Header White Nav Links
-------------------------------------*/
   @media (min-width: 1000px) {
 
     .u-header--white-nav-links .u-header__nav-link,
@@ -11141,9 +11120,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Default Navbar Expand
-------------------------------------*/
   .navbar-expand {
     flex-wrap: wrap;
     flex-wrap: wrap;
@@ -12716,9 +12692,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Header Navbar Background Colors
-------------------------------------*/
   .u-header--navbar-bg .u-header__section {
     border-color: transparent;
   }
@@ -12787,9 +12760,6 @@ button.bg-blue:focus {
     color: rgba(255, 255, 255, 0.7);
   }
 
-  /*------------------------------------
-  Header Submenu Background Colors
-------------------------------------*/
   .u-header--sub-menu-dark-bg .u-header__navbar-nav .u-header__sub-menu {
     background-color: var(--gray-200);
     border-color: rgba(255, 255, 255, 0.15);
@@ -12923,9 +12893,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Header Floating
-------------------------------------*/
   .u-header--floating:not([class*="u-header--floating-"]) {
     position: absolute;
     right: 0;
@@ -13118,9 +13085,6 @@ button.bg-blue:focus {
     background-color: transparent !important;
   }
 
-  /*------------------------------------
-  Absolute Positions
-------------------------------------*/
   .u-header--abs-top,
   .u-header--abs-bottom,
   .u-header--abs-top-2nd-screen {
@@ -13504,9 +13468,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Header Sidebar
-------------------------------------*/
   .u-header-sidebar__footer-offset {
     height: 100%;
     box-sizing: border-box;
@@ -13545,9 +13506,6 @@ button.bg-blue:focus {
     color: #fff;
   }
 
-  /*------------------------------------
-  Sticky Positions
-------------------------------------*/
   .u-header--sticky-top,
   .u-header--sticky-bottom {
     position: fixed;
@@ -13825,9 +13783,6 @@ button.bg-blue:focus {
     }
   }
 
-  /*------------------------------------
-  Header Center Aligned
-------------------------------------*/
   .u-header--center-aligned__inner {
     display: flexbox;
     display: flex;
@@ -13936,9 +13891,6 @@ button.bg-blue:focus {
     padding-top: 0;
   }
 
-  /*------------------------------------
-  Hamburgers
-------------------------------------*/
   .u-hamburger {
     font-size: inherit;
     line-height: 0;
@@ -14082,9 +14034,6 @@ button.bg-blue:focus {
 
 
 
-  /*------------------------------------
-  Avatar
-------------------------------------*/
 
 
   .u-avatar {
@@ -14229,9 +14178,6 @@ button.bg-blue:focus {
     display: flex;
   }
 
-  /*------------------------------------
-  Video Player
-------------------------------------*/
   .u-video-player {
     position: relative;
     background-color: #000;
@@ -14265,9 +14211,6 @@ button.bg-blue:focus {
 
 
 
-  /*------------------------------------
-  Space
-------------------------------------*/
 
   .m-0 {
     margin: 0 !important;

@@ -16,7 +16,14 @@ a:is(
 *:has(
 	div > span > .some-class,
 	span > span > #some-id,
-	[class*="some_class"]:has(div, span, a, p, .child, #child)
+	[class*="some_class"]:has(
+		div,
+		span,
+		a,
+		p,
+		.child,
+		#child
+	)
 ) {
 	color: red;
 }

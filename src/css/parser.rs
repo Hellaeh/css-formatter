@@ -11,7 +11,7 @@ pub enum Token<'a> {
 
 	Ident(&'a [u8]),
 	Function(&'a [u8]),
-	// URL(&'a [u8]), // Function
+	// URL(&'a [u8]),
 	// BadURL, // Not supported
 	AtRule(&'a [u8]),
 	Hash(&'a [u8]),

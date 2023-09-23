@@ -45,6 +45,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		// WARN: For now the only place comments allowed, also remove this comment, when support arrives
 		while let Token::Comment(bytes) = self.tokens.current() {
 			self.context.write_comment(bytes)?;
+			self.context.flush()?;
+			self.context.flush()?;
 			self.tokens.next()?;
 		}
 
@@ -207,6 +209,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				Token::Comment(_) => self.format_comment()?,
 
+				Token::AtRule(_) => self.format_atrule()?,
+
 				Token::BracketCurlyOpen
 				| Token::BracketSquareOpen
 				| Token::Colon
@@ -248,7 +252,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					break;
 				}
 
-				_ => {}
+				token => unexpected_token!(token),
 			}
 
 			self.tokens.next_with_whitespace()?;
@@ -448,18 +452,17 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 	/// Format CSS function `:is()` or `translate()`
 	#[inline]
-	pub fn format_function(&mut self) -> Result<'a, ()> {
+	fn format_function(&mut self) -> Result<'a, ()> {
 		let Token::Function(bytes) = self.tokens.current() else {
 			// #Safety: Caller must ensure this function is called with valid token
 			unsafe { unreachable_unchecked() }
 		};
 
-		let mut level = 0;
-
 		self.context.write_all(bytes)?;
 
 		self.tokens.next()?;
 
+		let mut level = 0;
 		loop {
 			match self.tokens.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
@@ -523,7 +526,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				Token::BracketSquareOpen => self.format_attribute_selector()?,
 
-				token => unexpected_token!(token),
+				token => {
+					dbg!(&self.context);
+					unexpected_token!(token);
+				}
 			}
 
 			self.tokens.next_with_whitespace()?;
@@ -537,6 +543,11 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::Comment(_) => self.format_comment()?,
+
+				Token::AtRule(_) => {
+					dbg!("NO WAT");
+					self.format_atrule()?;
+				}
 
 				Token::Ident(bytes) | Token::Hash(bytes) => self.context.write_all(bytes)?,
 
@@ -572,7 +583,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 						Token::Colon | Token::Ident(_) => continue,
 						Token::Function(_) => self.format_function()?,
 						token => {
-							dbg!(self.tokens.prev(), self.tokens.next()?);
+							dbg!(&self.context);
 							unexpected_token!(token);
 						}
 					}
@@ -698,7 +709,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				| Token::BracketSquareOpen
 				| Token::AtRule(_)
 				| Token::Colon
-				| Token::Delim(_)
+				// | Token::Delim(_)
 				| Token::Function(_)
 				| Token::Hash(_)
 				| Token::Ident(_)
