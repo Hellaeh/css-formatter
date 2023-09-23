@@ -10,18 +10,11 @@ checksum = "cc0b37dca61a93e94545fed0d7de6e40b4babf5eed87155a629f1d5c6d051fb7"
 
 [[package]]
 name = "hel-css-formatter"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "hel-colored",
- "hel-fs",
  "hel-trie",
 ]
-
-[[package]]
-name = "hel-fs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "facd039fe98b1899a2051036e575594a58b330d705085ca825b78138d2226058"
 
 [[package]]
 name = "hel-trie"
