@@ -1,6 +1,6 @@
 use super::Helper;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub struct Line {
 	buf: Vec<u8>,
 }
@@ -53,92 +53,104 @@ impl Line {
 	fn split(buf: &[u8], offset: u8) -> impl Iterator<Item = (u8, &[u8])> {
 		let mut lines = Vec::new();
 
-		let mut i = 0;
-		let mut prev = i;
+		fn split<'a>(buf: &'a [u8], offset: u8, lines: &mut Vec<(u8, &'a [u8])>) -> usize {
+			let mut i = 0;
+			let mut prev = i;
 
-		while i < buf.len() {
-			match buf[i] {
-				b'(' => {
-					let mut level = 0;
+			while i < buf.len() {
+				match buf[i] {
+					// We can't split string
+					b'"' => {
+						i += 1;
 
-					lines.push((offset, &buf[prev..=i]));
-
-					i += 1;
-					prev = i;
-
-					while i < buf.len() {
-						match buf[i] {
-							b'(' => level += 1,
-							b')' => {
-								if level == 0 {
-									lines.push((offset + 1, &buf[prev..i]));
-									prev = i;
-									break;
-								}
-
-								level -= 1;
-							}
-							// Force split on comma
-							b',' if level == 0 => {
-								let inner = &buf[prev..=i];
-
-								// Skip space
-								i += 2;
-								prev = i;
-
-								if inner.len() > MAX_LENGTH {
-									lines.extend(Self::split(inner, offset + 1));
-								} else {
-									lines.push((offset + 1, inner))
-								}
-							}
-							_ => {}
+						while buf[i] != b'"' {
+							i += 1;
 						}
+					}
+
+					b'(' => {
+						// We might step out of this block
+						let mut start = prev;
 
 						i += 1;
-					}
-				}
 
-				b':' if matches!(buf.get(i + 1), Some(b' ')) => {
-					let mut level = 0;
+						lines.push((offset, &buf[start..i]));
 
-					lines.push((offset, &buf[prev..=i]));
+						start = i;
 
-					i += 2;
-					prev = i;
+						let mut level = 0;
+						let len_before = lines.len();
 
-					while i < buf.len() {
-						match buf[i] {
-							b'(' => level += 1,
-							b')' => level -= 1,
+						// Find matching paren
+						while i < buf.len() {
+							match buf[i] {
+								b')' if level == 0 => break,
 
-							b',' if level == 0 => {
-								let inner = &buf[prev..=i];
+								b'(' => level += 1,
+								b')' => level -= 1,
 
-								// Skip space
-								i += 2;
-								prev = i;
-
-								if inner.len() > MAX_LENGTH {
-									lines.extend(Self::split(inner, offset + 1));
-								} else {
-									lines.push((offset + 1, inner));
-								}
+								_ => {}
 							}
-							_ => {}
+
+							i += 1;
 						}
 
-						i += 1;
+						// FIXME: fml
+						if (i - start) < (MAX_LENGTH / 4) {
+							lines.truncate(len_before - 1);
+							continue;
+						}
+
+						let inner = &buf[start..i];
+
+						let res = split(inner, offset + 1, lines);
+
+						// FIXME: do a flip
+						if (lines.len() - len_before) < 2 {
+							lines.truncate(len_before - 1);
+						} else {
+							i = start + res;
+							prev = i;
+						}
 					}
+
+					b':' if matches!(buf.get(i + 1), Some(b' ')) => {
+						lines.push((offset, &buf[prev..=i]));
+
+						// Skip space
+						i += 2;
+
+						let inner = &buf[i..];
+
+						i += split(inner, offset + 1, lines);
+						prev = i;
+					}
+
+					b',' if offset > 0 => {
+						i += 1;
+
+						lines.push((offset, &buf[prev..i]));
+
+						// Skip space
+						prev = i + 1;
+					}
+
+					_ => {}
 				}
 
-				_ => {}
+				i += 1;
 			}
 
-			i += 1;
+			let last = &buf[prev..];
+
+			if !last.is_empty() {
+				lines.push((offset, last));
+			}
+
+			i
 		}
 
-		lines.push((offset, &buf[prev..]));
+		split(buf, offset, &mut lines);
 
 		lines.into_iter()
 	}
@@ -177,16 +189,7 @@ mod tests {
 				],
 			),
 			(
-				b"background: \
-				conic-gradient(\
-				from 230deg at 51.63% 52%, \
-				rgb(36, 0, 255) 0deg, \
-				rgb(0, 135, 255) 65deg, \
-				rgb(154, 25, 246) 198.75deg, \
-				rgb(15, 33, 192) 255deg, \
-				rgb(84, 135, 229) 300deg, \
-				rgb(108, 49, 226) 360deg\
-				);",
+				b"background: conic-gradient(from 230deg at 51.63% 52%, rgb(36, 0, 255) 0deg, rgb(0, 135, 255) 65deg, rgb(154, 25, 246) 198.75deg, rgb(15, 33, 192) 255deg, rgb(84, 135, 229) 300deg, rgb(108, 49, 226) 360deg);",
 				&[
 					(0, b"background:"),
 					(1, b"conic-gradient("),
