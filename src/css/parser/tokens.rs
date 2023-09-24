@@ -1,7 +1,6 @@
 use super::{Parser, Result, Token};
 
 /// Wrapper around [`Parser`], caches current and prev tokens
-#[derive(Debug)]
 pub struct Tokens<'a> {
 	parser: Parser<'a>,
 	current: Token<'a>,
@@ -63,5 +62,18 @@ impl<'a> Tokens<'a> {
 	#[inline(always)]
 	pub fn prev(&self) -> Option<Token<'a>> {
 		self.prev
+	}
+}
+
+impl<'a> std::fmt::Debug for Tokens<'a> {
+	#[inline]
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if let Some(prev) = self.prev() {
+			writeln!(f, "Previous token: {:?}", prev)?;
+		}
+
+		writeln!(f, "Current token: {:?}", self.current)?;
+
+		Ok(())
 	}
 }

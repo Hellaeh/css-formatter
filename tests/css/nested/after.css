@@ -10,3 +10,31 @@ a {
 	}
 }
 
+a {
+	color: red;
+
+	+ b {
+		color: green;
+	}
+
+	~ b {
+		color: green;
+	}
+
+	+ .b {
+		color: green;
+	}
+
+	+ #b {
+		color: green;
+	}
+
+	> .b + a {
+		color: green;
+	}
+
+	@media (min-width:1280px) {
+		color: blue;
+	}
+}
+

@@ -109,6 +109,11 @@ where
 
 		res
 	}
+
+	#[inline(always)]
+	pub fn indent(&self) -> u8 {
+		self.indent
+	}
 }
 
 impl<T> std::ops::Deref for Context<T> {
@@ -130,14 +135,14 @@ impl<T> std::ops::DerefMut for Context<T> {
 impl<T> std::fmt::Debug for Context<T> {
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		writeln!(f, "Context {{")?;
+		// writeln!(f, "Context {{")?;
 
 		let buf = unsafe { std::str::from_utf8_unchecked(&self.current_line) };
 
-		writeln!(f, "\tLine: {}", self.line_num)?;
-		writeln!(f, "\tIndentation: {}", self.indent)?;
-		writeln!(f, "\tContent: \"{}\"", buf)?;
+		writeln!(f, "Line: {}", self.line_num)?;
+		writeln!(f, "Indentation: {}", self.indent)?;
+		writeln!(f, "Content: \"{}\"", buf)
 
-		writeln!(f, "}}")
+		// writeln!(f, "}}")
 	}
 }
