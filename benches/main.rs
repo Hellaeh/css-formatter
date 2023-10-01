@@ -9,8 +9,8 @@ use utils::*;
 #[bench]
 #[ignore = "use -- --ignored --nocapture"]
 fn main(b: &mut Bencher) {
-	let (_, before, after) = get_test_cases()
-		.find(|(name, _, _)| name.contains("big"))
+	let Case { before, after, .. } = get_test_cases()
+		.find(|case| case.name.contains("big"))
 		.unwrap();
 
 	let baseline_case = "p{color:red;}";

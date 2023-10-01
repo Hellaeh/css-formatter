@@ -1,7 +1,7 @@
 use formatter::{Error, Formatter};
 use parser::Parser;
 
-use self::parser::Tokens;
+use parser::Cache;
 
 pub fn format<'a, S: AsRef<str>>(
 	input: &'a S,
@@ -11,8 +11,8 @@ pub fn format<'a, S: AsRef<str>>(
 
 	let parser = Parser::new(bytes);
 
-	let tokens = Tokens::new(parser)?;
-	let mut formatter = Formatter::new(tokens, output);
+	let cache = Cache::new(parser)?;
+	let mut formatter = Formatter::new(cache, output);
 
 	formatter.format()
 }
@@ -20,3 +20,4 @@ pub fn format<'a, S: AsRef<str>>(
 mod formatter;
 mod parser;
 mod properties;
+mod tokens;

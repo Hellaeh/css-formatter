@@ -14,3 +14,4 @@ hel-trie = { path = "../../crates/trees/trie" }
 
 [dev-dependencies]
 hel-colored = { version = "0.5.1", features = ["nested"] }
+hel-thread-pool = "0.2.0"

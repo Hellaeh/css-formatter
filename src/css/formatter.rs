@@ -1,29 +1,23 @@
 use std::hint::unreachable_unchecked;
 use std::io::Write;
 
+use crate::consts::ASCII;
+
+use super::parser::{Cache, Error as ParserError};
+use super::properties::{Descriptor, Trie};
+use super::tokens::Token;
+
 use self::context::Context;
 use self::utils::Helper;
-
-use super::parser::{Error as ParserError, Token, Tokens};
-use super::properties::{Descriptor, Trie};
-
-const COLON: u8 = b':';
-const COMMA: u8 = b',';
-const SEMICOLON: u8 = b';';
-const OPEN_PAREN: u8 = b'(';
-const CLOSE_PAREN: u8 = b')';
-const OPEN_CURLY: u8 = b'{';
-const CLOSE_CURLY: u8 = b'}';
-const OPEN_SQUARED: u8 = b'[';
-const CLOSE_SQUARED: u8 = b']';
-const QUOTE: u8 = b'"';
 
 macro_rules! unexpected_token {
 	($token: expr, $self: expr) => {{
 		#[cfg(debug_assertions)]
 		{
+			eprintln!("--------------------------------------------------");
 			eprintln!("{:?}", $self.context);
-			eprintln!("{:?}", $self.tokens);
+			eprintln!("{:?}", $self.token_cache);
+			eprintln!("--------------------------------------------------");
 		}
 
 		return Err(Error::UnexpectedToken {
@@ -43,12 +37,11 @@ pub enum Error<'a> {
 	UnexpectedEOF,
 	UnexpectedToken { token: Token<'a>, line: u32 },
 	UnexpectedUTF8,
-	UnknownProperty,
 }
 
 #[derive(Debug)]
 pub struct Formatter<'a, T> {
-	tokens: Tokens<'a>,
+	token_cache: Cache<'a>,
 	context: Context<T>,
 	props: Trie<'a>,
 }
@@ -60,16 +53,17 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	pub fn format(&mut self) -> Result<'a, ()> {
 		// Write top level comment
 		// FIXME: For now the only place comments allowed, also remove this comment, when support arrives
-		while let Token::Comment(bytes) = self.tokens.current() {
+		while let Token::Comment(bytes) = self.token_cache.current() {
 			self.context.write_comment(bytes)?;
 			self.context.flush()?;
 			self.context.flush()?;
-			self.tokens.next()?;
+
+			self.token_cache.next()?;
 		}
 
 		// Top level loop
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Comment(_) => self.format_comment()?,
 
 				// Start of a ruleset (hopefully)
@@ -85,7 +79,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			match self.tokens.next() {
+			match self.token_cache.next() {
 				Err(ParserError::EOF) => break,
 				Err(err) => {
 					// TODO: Should crash or ignore
@@ -106,17 +100,17 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	/// Caller must ensure that current token is a CSS at-rule
 	#[inline]
 	fn format_atrule(&mut self) -> Result<'a, ()> {
-		let Token::AtRule(at_rule) = self.tokens.current() else {
-			unsafe { unreachable_unchecked() }
+		let Token::AtRule(at_rule) = self.token_cache.current() else {
+			unexpected_token!(self.token_cache.current(), self);
 		};
 
 		self.context.write_all(at_rule)?;
 		self.context.write_space()?;
 
-		self.tokens.next()?;
+		self.token_cache.next()?;
 
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::Comment(_) => self.format_comment()?,
@@ -133,17 +127,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::Delim(del) => self.context.write_u8(del)?,
 
 				Token::Semicolon => {
-					self.context.write_u8(SEMICOLON)?;
+					self.context.write_u8(ASCII::SEMICOLON)?;
 					self.context.flush()?;
 
-					if matches!(
-						self.tokens.peek_next_with_whitespace(),
-						Ok(Token::Whitespace)
-					) {
-						unsafe { self.tokens.next_with_whitespace().unwrap_unchecked() };
-					}
-
-					if self.tokens.peek_next_with_whitespace().is_ok() {
+					if self.token_cache.peek_next().is_ok() {
 						self.context.flush()?;
 					}
 
@@ -151,19 +138,23 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				}
 
 				Token::Colon => {
-					self.context.write_u8(COLON)?;
+					self.context.write_u8(ASCII::COLON)?;
 					self.context.write_space()?;
 
-					self.tokens.next()?;
+					self.token_cache.next()?;
 
 					continue;
 				}
 
-				Token::BracketRoundOpen => self.context.write_u8(OPEN_PAREN)?,
-				Token::BracketRoundClose => self.context.write_u8(CLOSE_PAREN)?,
+				Token::BracketRoundOpen => self.context.write_u8(ASCII::PAREN_OPEN)?,
+				Token::BracketRoundClose => self.context.write_u8(ASCII::PAREN_CLOSE)?,
 
 				Token::BracketCurlyOpen => {
-					self.format_block()?;
+					if self.context.indent() > 0 {
+						self.format_declaration_block()?;
+					} else {
+						self.format_block()?;
+					}
 
 					return Ok(());
 				}
@@ -171,36 +162,63 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
 	}
 
+	/// Syntax: [attribute operator value char?]
 	#[inline]
 	fn format_attribute_selector(&mut self) -> Result<'a, ()> {
-		self.context.write_u8(OPEN_SQUARED)?;
+		self.context.write_u8(ASCII::SQUARED_OPEN)?;
 
-		// No spaces expected
-		self.tokens.next()?;
+		// attr
+		{
+			let Token::Ident(bytes) = self.token_cache.next()? else {
+				unexpected_token!(self.token_cache.current(), self);
+			};
 
-		loop {
-			match self.tokens.current() {
-				Token::Comment(_) => self.format_comment()?,
+			self.context.write_all(bytes)?;
+		}
 
-				Token::Ident(bytes) => self.context.write_all(bytes)?,
+		// operator might be composite `*=` or simple `=`
+		{
+			let Token::Delim(del) = self.token_cache.next()? else {
+				unexpected_token!(self.token_cache.current(), self);
+			};
 
-				Token::String(bytes) => self.format_string(bytes)?,
+			self.context.write_u8(del)?;
 
-				Token::Delim(del) => self.context.write_u8(del)?,
-
-				Token::BracketSquareClose => {
-					self.context.write_u8(CLOSE_SQUARED)?;
-					break;
-				}
-
-				token => unexpected_token!(token, self),
+			if let Token::Delim(del) = self.token_cache.peek_next()? {
+				unsafe { self.token_cache.next().unwrap_unchecked() };
+				self.context.write_u8(del)?;
 			}
+		}
 
-			self.tokens.next()?;
+		// value
+		{
+			let Token::String(bytes) = self.token_cache.next()? else {
+				unexpected_token!(self.token_cache.current(), self);
+			};
+
+			self.format_string(bytes)?;
+		}
+
+		// `i` or `I` or `s` or `S`
+		{
+			if let Token::Ident(bytes) = self.token_cache.peek_next()? {
+				unsafe { self.token_cache.next().unwrap_unchecked() };
+				self.context.write_space()?;
+				self.context.write_all(bytes)?;
+			}
+		}
+
+		// closing `]`
+		{
+			let Token::BracketSquareClose = self.token_cache.next()? else {
+				unexpected_token!(self.token_cache.current(), self);
+			};
+
+			self.context.write_u8(ASCII::SQUARED_CLOSE)?;
 		}
 
 		Ok(())
@@ -212,15 +230,15 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.context.write_space()?;
 		}
 
-		self.context.write_u8(OPEN_CURLY)?;
+		self.context.write_u8(ASCII::CURLY_OPEN)?;
 		self.context.flush()?;
 
 		self.context.indent_inc()?;
 
-		self.tokens.next()?;
+		self.token_cache.next()?;
 
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::Comment(_) => self.format_comment()?,
@@ -230,8 +248,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::BracketCurlyOpen
 				| Token::BracketSquareOpen
 				| Token::Colon
-				| Token::Delim(b'.')
-				| Token::Delim(b'&')
+				| Token::Delim(ASCII::DOT)
+				| Token::Delim(ASCII::AMPERSAND)
 				| Token::Hash(_)
 				| Token::Ident(_) => self.format_ruleset()?,
 
@@ -239,29 +257,18 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::Number(bytes) => self.context.write_all(bytes)?,
 
 				Token::Comma => {
-					self.context.write_u8(COMMA)?;
+					self.context.write_u8(ASCII::COMMA)?;
 					self.context.flush()?;
 				}
 
 				Token::BracketCurlyClose => {
 					unsafe { self.context.indent_dec().unwrap_unchecked() }
 
-					self.context.write_u8(CLOSE_CURLY)?;
+					self.context.write_u8(ASCII::CURLY_CLOSE)?;
 					self.context.flush()?;
 
-					// Skip next whitespace token
-					if matches!(
-						self.tokens.peek_next_with_whitespace(),
-						Ok(Token::Whitespace)
-					) {
-						unsafe { self.tokens.next_with_whitespace().unwrap_unchecked() };
-					}
-
 					// Add empty line after block, if there's more content
-					if !matches!(
-						self.tokens.peek_next_with_whitespace(),
-						Ok(Token::BracketCurlyClose)
-					) {
+					if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
 						self.context.flush()?;
 					}
 
@@ -271,7 +278,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
 
 		Ok(())
@@ -280,34 +287,55 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	// FIXME: Remove inline `always`, once function actually do something
 	#[inline(always)]
 	fn format_comment(&self) -> Result<'a, ()> {
-		unexpected_token!(self.tokens.current(), self)
+		unexpected_token!(self.token_cache.current(), self)
 	}
 
 	#[inline]
 	fn format_declaration(&mut self) -> Result<'a, ()> {
+		let Token::Ident(bytes) = self.token_cache.current() else {
+			unexpected_token!(self.token_cache.current(), self);
+		};
+
+		self.context.write_all(bytes)?;
+
+		let Token::Colon = self.token_cache.next()? else {
+			unexpected_token!(self.token_cache.current(), self);
+		};
+
+		self.context.write_all(b": ")?;
+
+		self.token_cache.next()?;
+
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
+				Token::Comment(_) => self.format_comment()?,
+
 				Token::BracketCurlyClose => {
-					self.context.write_u8(SEMICOLON)?;
+					self.context.write_u8(ASCII::SEMICOLON)?;
 
 					unexpected_token!(Token::BracketCurlyClose, self)
 				}
 
 				Token::Semicolon => {
-					self.context.write_u8(SEMICOLON)?;
-					return Ok(());
+					self.context.write_u8(ASCII::SEMICOLON)?;
+
+					break;
 				}
 
-				Token::Comment(_) => self.format_comment()?,
-
-				// `color: var(--some-var);`
+				// `color: var(--some-var);` or `background: conic-gradient(...)`
 				Token::Function(_) => self.format_function()?,
 
 				// `color: #cccccc;`
 				Token::Hash(bytes) | Token::Ident(bytes) | Token::Number(bytes) => {
 					self.context.write_all(bytes)?
+				}
+
+				// `!important`
+				Token::Delim(del @ ASCII::EXCLAMATION) => {
+					self.context.write_space()?;
+					self.context.write_u8(del)?;
 				}
 
 				Token::Delim(del) => self.context.write_u8(del)?,
@@ -317,20 +345,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				// `background: var(--some-var), blue;`
 				Token::Comma => {
-					self.context.write_u8(COMMA)?;
+					self.context.write_u8(ASCII::COMMA)?;
 					self.context.write_space()?;
 
-					self.tokens.next()?;
-
-					continue;
-				}
-
-				// `color: blue;`
-				Token::Colon => {
-					self.context.write_u8(COLON)?;
-					self.context.write_space()?;
-
-					self.tokens.next()?;
+					self.token_cache.next()?;
 
 					continue;
 				}
@@ -338,8 +356,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
+
+		Ok(())
 	}
 
 	// CSS now support nesting which means pain in the ass for me
@@ -354,7 +374,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.context.write_space()?;
 		}
 
-		self.context.write_u8(OPEN_CURLY)?;
+		self.context.write_u8(ASCII::CURLY_OPEN)?;
 		self.context.flush()?;
 
 		self.context.indent_inc()?;
@@ -371,10 +391,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		// TODO: ??
 		// let at_rules = Vec::new();
 
-		self.tokens.next()?;
+		self.token_cache.next()?;
 
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::Comment(_) => self.format_comment()?,
@@ -402,8 +422,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				Token::BracketSquareOpen
 				| Token::Colon
-				| Token::Delim(b'.')
-				| Token::Delim(b'&')
+				| Token::Delim(ASCII::DOT)
+				| Token::Delim(ASCII::AMPERSAND)
 				| Token::Hash(_)
 				| Token::Ident(_) => self.format_ruleset()?,
 
@@ -412,7 +432,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::Delim(del) => self.process_delim(del)?,
 
 				Token::Comma => {
-					self.context.write_u8(COMMA)?;
+					self.context.write_u8(ASCII::COMMA)?;
 					self.context.flush()?;
 				}
 
@@ -434,22 +454,11 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					// SAFETY: by recursive nature it's impossible to cause integer underflow
 					unsafe { self.context.indent_dec().unwrap_unchecked() };
 
-					self.context.write_u8(CLOSE_CURLY)?;
+					self.context.write_u8(ASCII::CURLY_CLOSE)?;
 					self.context.flush()?;
 
-					// Skip next whitespace token
-					if matches!(
-						self.tokens.peek_next_with_whitespace(),
-						Ok(Token::Whitespace)
-					) {
-						unsafe { self.tokens.next_with_whitespace().unwrap_unchecked() };
-					}
-
 					// Add empty line after block, if there's more content
-					if !matches!(
-						self.tokens.peek_next_with_whitespace(),
-						Ok(Token::BracketCurlyClose)
-					) {
+					if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
 						self.context.flush()?;
 					}
 
@@ -459,7 +468,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
 
 		Ok(())
@@ -468,28 +477,28 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	/// Format CSS function `:is()` or `translate()`
 	#[inline]
 	fn format_function(&mut self) -> Result<'a, ()> {
-		let Token::Function(bytes) = self.tokens.current() else {
+		let Token::Function(bytes) = self.token_cache.current() else {
 			// #Safety: Caller must ensure this function is called with valid token
 			unsafe { unreachable_unchecked() }
 		};
 
 		self.context.write_all(bytes)?;
 
-		self.tokens.next()?;
+		self.token_cache.next()?;
 
 		let mut level = 0;
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::BracketRoundOpen => {
-					self.context.write_u8(OPEN_PAREN)?;
+					self.context.write_u8(ASCII::PAREN_OPEN)?;
 
 					level += 1;
 				}
 
 				Token::BracketRoundClose => {
-					self.context.write_u8(CLOSE_PAREN)?;
+					self.context.write_u8(ASCII::PAREN_CLOSE)?;
 
 					if level == 0 {
 						return Ok(());
@@ -499,10 +508,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				}
 
 				Token::Comma => {
-					self.context.write_u8(COMMA)?;
+					self.context.write_u8(ASCII::COMMA)?;
 					self.context.write_space()?;
 
-					self.tokens.next()?;
+					self.token_cache.next()?;
 
 					continue;
 				}
@@ -517,10 +526,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.write_all(bytes)?
 				}
 
-				Token::Delim(del @ b'.') => {
+				Token::Delim(del @ ASCII::DOT) => {
 					self.context.write_u8(del)?;
 
-					let next = self.tokens.next()?;
+					let next = self.token_cache.next()?;
 
 					if !matches!(next, Token::Ident(_)) {
 						unexpected_token!(next, self);
@@ -532,9 +541,9 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::Delim(del) => self.process_delim(del)?,
 
 				Token::Colon => {
-					self.context.write_u8(COLON)?;
+					self.context.write_u8(ASCII::COLON)?;
 
-					self.tokens.next()?;
+					self.token_cache.next()?;
 
 					continue;
 				}
@@ -544,14 +553,14 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
 	}
 
 	#[inline]
 	fn format_ruleset(&mut self) -> Result<'a, ()> {
 		loop {
-			match self.tokens.current() {
+			match self.token_cache.current() {
 				Token::Whitespace => self.whitespace_between_words()?,
 
 				Token::Comment(_) => self.format_comment()?,
@@ -560,12 +569,12 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				Token::Ident(bytes) | Token::Hash(bytes) => self.context.write_all(bytes)?,
 
-				Token::Delim(del @ b'*') => self.context.write_u8(del)?,
+				Token::Delim(del @ ASCII::ASTERISK) => self.context.write_u8(del)?,
 
-				Token::Delim(del @ b'.') => {
+				Token::Delim(del @ ASCII::DOT) => {
 					self.context.write_u8(del)?;
 
-					let next = self.tokens.next()?;
+					let next = self.token_cache.next()?;
 
 					if !matches!(next, Token::Ident(_)) {
 						unexpected_token!(next, self)
@@ -574,21 +583,21 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					continue;
 				}
 
-				Token::Delim(del @ b'&') => {
+				Token::Delim(del @ ASCII::AMPERSAND) => {
 					self.context.write_u8(del)?;
 
-					if self.tokens.next_with_whitespace()? == Token::Whitespace {
+					if self.token_cache.next_with_whitespace()? == Token::Whitespace {
 						self.context.write_space()?;
-						self.tokens.next()?;
+						self.token_cache.next()?;
 					}
 
 					continue;
 				}
 
 				Token::Colon => {
-					self.context.write_u8(COLON)?;
+					self.context.write_u8(ASCII::COLON)?;
 
-					match self.tokens.next()? {
+					match self.token_cache.next()? {
 						Token::Colon | Token::Ident(_) => continue,
 						Token::Function(_) => self.format_function()?,
 						token => unexpected_token!(token, self),
@@ -599,7 +608,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				// Comma means EOL for us
 				Token::Comma => {
-					self.context.write_u8(COMMA)?;
+					self.context.write_u8(ASCII::COMMA)?;
 					self.context.flush()?;
 				}
 
@@ -609,13 +618,12 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					break;
 				}
 
-				// Token::Function(_) => todo!(),
 				Token::BracketSquareOpen => self.format_attribute_selector()?,
 
 				token => unexpected_token!(token, self),
 			}
 
-			self.tokens.next_with_whitespace()?;
+			self.token_cache.next_with_whitespace()?;
 		}
 
 		Ok(())
@@ -623,9 +631,9 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 	#[inline]
 	fn format_string(&mut self, bytes: &[u8]) -> Result<'a, ()> {
-		self.context.write_u8(QUOTE)?;
+		self.context.write_u8(ASCII::QUOTE)?;
 		self.context.write_all(bytes)?;
-		self.context.write_u8(QUOTE)?;
+		self.context.write_u8(ASCII::QUOTE)?;
 
 		Ok(())
 	}
@@ -633,8 +641,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	fn get_description(&self, bytes: &'a [u8]) -> Descriptor<'a> {
 		let name = unsafe { std::str::from_utf8_unchecked(bytes) };
 
-		if bytes.len() > 1 && bytes[0] == b'-' {
-			return if bytes[1] == b'-' {
+		if bytes.len() > 1 && bytes[0] == ASCII::DASH {
+			return if bytes[1] == ASCII::DASH {
 				Descriptor::variable(name)
 			} else {
 				Descriptor::unknown(name)
@@ -649,9 +657,9 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	}
 
 	#[inline]
-	pub fn new(tokens: Tokens<'a>, output: T) -> Self {
+	pub fn new(cache: Cache<'a>, output: T) -> Self {
 		Self {
-			tokens,
+			token_cache: cache,
 			context: Context::new(output),
 			props: Trie::new(),
 		}
@@ -660,7 +668,12 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	#[inline]
 	fn process_delim(&mut self, delim: u8) -> Result<'a, ()> {
 		match delim {
-			b'+' | b'-' | b'>' | b'~' | b'*' | b'/' => {
+			ASCII::PLUS
+			| ASCII::DASH
+			| ASCII::GT
+			| ASCII::TILDE
+			| ASCII::ASTERISK
+			| ASCII::FORWARD_SLASH => {
 				if !self.context.is_empty() {
 					self.context.write_space()?;
 				}
@@ -669,22 +682,22 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				self.context.write_space()?;
 			}
 
-			b'#' => {
-				if self.tokens.prev() == Some(Token::Whitespace) {
+			ASCII::HASH => {
+				if self.token_cache.prev() == Some(Token::Whitespace) {
 					self.context.write_space()?;
 				}
 
 				self.context.write_u8(delim)?;
 
 				if matches!(
-					self.tokens.peek_next_with_whitespace(),
+					self.token_cache.peek_next_with_whitespace(),
 					Ok(Token::Whitespace)
 				) {
 					self.context.write_space()?;
 				}
 			}
 
-			_ => unexpected_token!(self.tokens.current(), self),
+			_ => unexpected_token!(self.token_cache.current(), self),
 		}
 
 		Ok(())
@@ -692,8 +705,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 	#[inline]
 	fn whitespace_between_words(&mut self) -> Result<'a, ()> {
-		let (Some(prev), Ok(next)) = (self.tokens.prev(), self.tokens.peek_next_with_whitespace())
-		else {
+		let (Some(prev), Ok(next)) = (self.token_cache.prev(), self.token_cache.peek_next()) else {
 			return Ok(());
 		};
 

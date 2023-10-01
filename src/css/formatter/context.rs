@@ -10,7 +10,7 @@ pub struct Context<T> {
 	indent: u8,
 	line_num: u32,
 
-	pub current_line: Line,
+	current_line: Line,
 }
 
 impl<T> Context<T>
@@ -135,14 +135,10 @@ impl<T> std::ops::DerefMut for Context<T> {
 impl<T> std::fmt::Debug for Context<T> {
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		// writeln!(f, "Context {{")?;
-
 		let buf = unsafe { std::str::from_utf8_unchecked(&self.current_line) };
 
 		writeln!(f, "Line: {}", self.line_num)?;
 		writeln!(f, "Indentation: {}", self.indent)?;
 		writeln!(f, "Content: \"{}\"", buf)
-
-		// writeln!(f, "}}")
 	}
 }

@@ -1,3 +1,5 @@
+use crate::consts::ASCII;
+
 use super::Helper;
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
@@ -51,6 +53,8 @@ impl Line {
 	/// Quite expensive, but most of CSS should fit in [`Self::MAX_LENGTH`]
 	#[inline]
 	fn split(buf: &[u8], offset: u8) -> impl Iterator<Item = (u8, &[u8])> {
+		// We need vec in order to backtrack
+		// TODO: improve algorithm, remove vec
 		let mut lines = Vec::new();
 
 		fn split<'a>(buf: &'a [u8], offset: u8, lines: &mut Vec<(u8, &'a [u8])>) -> usize {
@@ -60,7 +64,7 @@ impl Line {
 			while i < buf.len() {
 				match buf[i] {
 					// We can't split string
-					b'"' => {
+					ASCII::DOUBLE_QUOTE => {
 						i += 1;
 
 						while buf[i] != b'"' {
@@ -68,7 +72,7 @@ impl Line {
 						}
 					}
 
-					b'(' => {
+					ASCII::PAREN_OPEN => {
 						// We might step out of this block
 						let mut start = prev;
 
@@ -84,10 +88,10 @@ impl Line {
 						// Find matching paren
 						while i < buf.len() {
 							match buf[i] {
-								b')' if level == 0 => break,
+								ASCII::PAREN_CLOSE if level == 0 => break,
 
-								b'(' => level += 1,
-								b')' => level -= 1,
+								ASCII::PAREN_OPEN => level += 1,
+								ASCII::PAREN_CLOSE => level -= 1,
 
 								_ => {}
 							}
@@ -114,7 +118,7 @@ impl Line {
 						}
 					}
 
-					b':' if matches!(buf.get(i + 1), Some(b' ')) => {
+					ASCII::COLON if matches!(buf.get(i + 1).copied(), Some(ASCII::SPACE)) => {
 						lines.push((offset, &buf[prev..=i]));
 
 						// Skip space
@@ -126,7 +130,7 @@ impl Line {
 						prev = i;
 					}
 
-					b',' if offset > 0 => {
+					ASCII::COMMA if offset > 0 => {
 						i += 1;
 
 						lines.push((offset, &buf[prev..i]));
@@ -178,7 +182,11 @@ mod tests {
 
 	#[test]
 	fn string_splitting() {
-		let cases: &[(&[u8], &[(u8, &[u8])])] = &[
+		// For clippy
+		type Offset = u8;
+		type ByteArray = [u8];
+
+		let cases: &[(&ByteArray, &[(Offset, &ByteArray)])] = &[
 			(
 				br#"a:is([href*="path1"]:not([href~="path3"]), [href*="path2"]:not([href~="path4"]))"#,
 				&[

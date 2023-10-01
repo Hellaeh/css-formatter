@@ -13,8 +13,15 @@ name = "hel-css-formatter"
 version = "0.1.0"
 dependencies = [
  "hel-colored",
+ "hel-thread-pool",
  "hel-trie",
 ]
+
+[[package]]
+name = "hel-thread-pool"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b401da317a3e5cb74d91a3d283a42e3e197612abfea9472a1e02d2a2966a86d"
 
 [[package]]
 name = "hel-trie"

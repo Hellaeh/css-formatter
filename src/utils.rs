@@ -3,7 +3,7 @@ pub trait Helper {
 	fn is_ident_start(&self) -> bool;
 }
 
-impl Helper for &u8 {
+impl Helper for u8 {
 	#[inline(always)]
 	fn is_digit(&self) -> bool {
 		self.is_ascii_digit()
@@ -15,7 +15,7 @@ impl Helper for &u8 {
 	}
 }
 
-impl Helper for Option<&u8> {
+impl Helper for Option<u8> {
 	#[inline(always)]
 	fn is_digit(&self) -> bool {
 		matches!(self, Some(x) if x.is_digit())

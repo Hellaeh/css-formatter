@@ -1,5 +1,6 @@
 #![feature(byte_slice_trim_ascii)]
 #![feature(variant_count)]
+#![feature(specialization)]
 
 use std::io::Read;
 
@@ -45,5 +46,6 @@ fn main() -> std::io::Result<()> {
 	Ok(())
 }
 
-pub mod css;
-pub mod utils;
+mod consts;
+mod css;
+mod utils;
