@@ -1,0 +1,38 @@
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+
+	pardding: 0;
+}
+
+:root {
+	--some-color: #333;
+	--some-other-color: rgba(100, 100, 100, 0.1);
+}
+
+empty-rule {
+}
+
+p {
+	color: red;
+}
+
+.some_class {
+	display: none !important;
+}
+
+#some_id {
+	background: var(--some-other-color);
+}
+
+:has([href="something"]),
+[class*="else"],
+[id~="another"],
+[data-attr^="with"],
+[data-attr2$="with"],
+[data-attr3|="TheCASE" i],
+[data-attr3="SeNsitive" s] {
+}
+

@@ -35,31 +35,66 @@ pub fn format(css: &str) -> Result<(String, String), (String, String)> {
 	Ok(output)
 }
 
-pub fn get_test_cases() -> impl Iterator<Item = (String, String, String)> {
+pub struct Case {
+	pub complexity: usize,
+	pub order: usize,
+
+	pub name: String,
+
+	pub before: String,
+	pub after: String,
+}
+
+pub fn get_test_cases() -> impl Iterator<Item = Case> {
+	// We might store and sort it
 	std::fs::read_dir("tests/css/")
 		.expect("Cannot find css dir in tests")
 		.flatten()
 		// filter non directories
 		.filter(|dir| dir.file_type().unwrap().is_dir())
-		// read each directory
-		.map(|dir| (dir.file_name().into_string(), std::fs::read_dir(dir.path())))
-		// read files
-		.flat_map(|args| {
-			let (Ok(name), Ok(mut entries)) = args else {
-				return None;
-			};
+		// read each directory by complexity
+		.flat_map(|dir| {
+			let dir_name = dir.file_name().into_string().unwrap();
 
-			let (Some(Ok(entry1)), Some(Ok(entry2))) = (entries.next(), entries.next()) else {
-				return None;
-			};
+			let complexity = dir_name
+				.split_once('-')
+				.unwrap()
+				.0
+				.parse::<usize>()
+				.unwrap();
+
+			std::fs::read_dir(dir.path())
+				.unwrap()
+				.flatten()
+				.map(move |order_dir| (complexity, order_dir))
+		})
+		.flat_map(|(complexity, dir)| {
+			let dir_name = dir.file_name().into_string().ok()?;
+			let split = dir_name.split_once('-')?;
+
+			let order = split.0.parse::<usize>().ok()?;
+			let name = split.1.to_owned();
+
+			let mut entries = std::fs::read_dir(dir.path()).unwrap().flatten();
+			let (entry1, entry2) = (entries.next()?, entries.next()?);
 
 			let read = |entry: std::fs::DirEntry| std::fs::read_to_string(entry.path()).unwrap();
 
-			if entry1.file_name().into_string().unwrap().contains("before") {
-				Some((name, read(entry1), read(entry2)))
+			let (before, after) = if entry1.file_name().into_string().unwrap().contains("before") {
+				(read(entry1), read(entry2))
 			} else {
-				Some((name, read(entry2), read(entry1)))
-			}
+				(read(entry2), read(entry1))
+			};
+
+			Some(Case {
+				complexity,
+				order,
+
+				name,
+
+				before,
+				after,
+			})
 		})
 }
 
@@ -109,7 +144,7 @@ pub fn differentiate<'a>(result: &'a str, should_be: &'a str) -> Result<(), Diff
 	Ok(())
 }
 
-pub fn format_error_message<'a>(should_be: &'a str, diff: Difference<'a>) -> String {
+pub fn format_error_message(should_be: &str, diff: Difference<'_>) -> String {
 	use hel_colored::Colored;
 	use std::fmt::Write;
 

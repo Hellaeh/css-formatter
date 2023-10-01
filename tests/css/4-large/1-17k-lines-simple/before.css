@@ -11869,10 +11869,6 @@ button.bg-blue:focus {
       border-radius: var(--radius-4);
     }
 
-    -dark:hover {
-      background-color: var(--gray-200);
-      color: var(--loContrast);
-    }
 
     .navbar-expand-lg .u-header__navbar-nav .u-header__sub-menu {
       border: 1px solid var(--gray-500);

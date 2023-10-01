@@ -33,7 +33,7 @@ a {
 		color: green;
 	}
 
-	@media (min-width:1280px) {
+	@media (min-width: 1280px) {
 		color: blue;
 	}
 }
