@@ -57,10 +57,19 @@ impl Line {
 		// TODO: improve algorithm, remove vec
 		let mut lines = Vec::new();
 
+		#[cfg(debug_assertions)]
+		{
+			eprintln!("Split on: \"{}\"", unsafe {
+				std::str::from_utf8_unchecked(buf)
+			});
+		}
+
 		fn split<'a>(buf: &'a [u8], offset: u8, lines: &mut Vec<(u8, &'a [u8])>) -> usize {
 			let mut i = 0;
 			let mut prev = i;
 
+			// We make a lot of assumptions here, like:
+			// 1. There's always ` ` after `,` (unless it's a [`Token::String(_)`]), otherwise it's a UB
 			while i < buf.len() {
 				match buf[i] {
 					// We can't split string
@@ -196,6 +205,7 @@ mod tests {
 					(0, b")"),
 				],
 			),
+
 			(
 				b"background: conic-gradient(from 230deg at 51.63% 52%, rgb(36, 0, 255) 0deg, rgb(0, 135, 255) 65deg, rgb(154, 25, 246) 198.75deg, rgb(15, 33, 192) 255deg, rgb(84, 135, 229) 300deg, rgb(108, 49, 226) 360deg);",
 				&[
@@ -211,6 +221,19 @@ mod tests {
 					(1, b");"),
 				],
 			),
+
+			// Spacing is important, as we expect `space` after `comma`
+			(br#"--font: Inter, -system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif;"#, &[
+				(0, b"--font:"),
+				(1, b"Inter,"),
+				(1, b"-system,"),
+				(1, b"BlinkMacSystemFont,"),
+				(1, br#""Segoe UI","#),
+				(1, b"Roboto,"),
+				(1, br#""Helvetica Neue","#),
+				(1, b"Ubuntu,"),
+				(1, b"sans-serif;")
+			])
 		];
 
 		for (before, after) in cases.iter().copied() {

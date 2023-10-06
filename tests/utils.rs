@@ -72,7 +72,7 @@ pub fn get_test_cases() -> impl Iterator<Item = Case> {
 			let dir_name = dir.file_name().into_string().ok()?;
 			let split = dir_name.split_once('-')?;
 
-			let order = split.0.parse::<usize>().ok()?;
+			let order = split.0.parse::<usize>().unwrap_or(0);
 			let name = split.1.to_owned();
 
 			let mut entries = std::fs::read_dir(dir.path()).unwrap().flatten();

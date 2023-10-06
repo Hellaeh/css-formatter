@@ -7,6 +7,30 @@
 	pardding: 0;
 }
 
+* {
+	letter-spacing: 1rem;
+}
+
+* {
+	letter-spacing: +1rem;
+}
+
+* {
+	letter-spacing: -1rem;
+}
+
+* {
+	letter-spacing: .1rem;
+}
+
+* {
+	letter-spacing: +.1rem;
+}
+
+* {
+	letter-spacing: -.1rem;
+}
+
 :root {
 	--some-color: #333;
 	--some-other-color: rgba(100, 100, 100, 0.1);
@@ -36,3 +60,6 @@ p {
 [data-attr3="SeNsitive" s] {
 }
 
+p {
+	color: rgba(100, 100, 100, 0.1), hsl(0 0% 0%);
+}

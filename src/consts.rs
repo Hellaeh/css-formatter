@@ -12,7 +12,7 @@ impl ASCII {
 	pub const CURLY_CLOSE: u8 = b'}';
 	pub const CURLY_OPEN: u8 = b'{';
 	pub const DASH: u8 = b'-';
-	pub const DOT: u8 = b'.';
+	pub const FULL_STOP: u8 = b'.';
 	pub const DOUBLE_QUOTE: u8 = b'\"';
 	pub const FORWARD_SLASH: u8 = b'/';
 	pub const GT: u8 = b'>';

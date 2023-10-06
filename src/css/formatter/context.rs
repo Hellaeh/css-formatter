@@ -139,6 +139,6 @@ impl<T> std::fmt::Debug for Context<T> {
 
 		writeln!(f, "Line: {}", self.line_num)?;
 		writeln!(f, "Indentation: {}", self.indent)?;
-		writeln!(f, "Content: \"{}\"", buf)
+		write!(f, "Content: \"{}\"", buf)
 	}
 }

@@ -92,8 +92,11 @@ impl<'a> Parser<'a> {
 
 			// Number or delim token
 			#[allow(unused_must_use)]
-			delim @ (ASCII::DOT | ASCII::PLUS) => {
-				if next.is_digit() {
+			delim @ (ASCII::FULL_STOP | ASCII::PLUS) => {
+				if next.is_digit()
+					|| (next == Some(ASCII::FULL_STOP)
+						&& matches!(bytes.get(self.pos() + 2), Some(x) if x.is_digit()))
+				{
 					self.parse_number(bytes)?
 				} else {
 					self.advance(1);
@@ -104,7 +107,10 @@ impl<'a> Parser<'a> {
 			// Number or ident or delim token
 			#[allow(unused_must_use)]
 			ASCII::DASH => {
-				if next.is_digit() {
+				if next.is_digit()
+					|| (next == Some(ASCII::FULL_STOP)
+						&& matches!(bytes.get(self.pos() + 2), Some(x) if x.is_digit()))
+				{
 					self.parse_number(bytes)?
 				} else if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | ASCII::UNDERSCORE | ASCII::DASH))
 				{
@@ -226,7 +232,7 @@ impl<'a> Parser<'a> {
 
 		let mut cur = unsafe { *bytes.get_unchecked(self.pos()) };
 
-		if matches!(cur, ASCII::DASH | ASCII::PLUS | ASCII::DOT) {
+		if matches!(cur, ASCII::DASH | ASCII::PLUS | ASCII::FULL_STOP) {
 			self.advance(1);
 		}
 
@@ -234,7 +240,7 @@ impl<'a> Parser<'a> {
 			cur = unsafe { *bytes.get_unchecked(self.pos()) };
 
 			// Matches (we don't care about validity): 1px, 1rem, 100%, +110e10, -110, +++++++++1, .1..1
-			if !matches!(cur,  ASCII::PERCENTAGE| ASCII::PLUS | ASCII::DASH | ASCII::DOT | b'A'..=b'Z'| b'a'..=b'z' |b'0'..=b'9' )
+			if !matches!(cur,  ASCII::PERCENTAGE| ASCII::PLUS | ASCII::DASH | ASCII::FULL_STOP | b'A'..=b'Z'| b'a'..=b'z' |b'0'..=b'9' )
 			{
 				break;
 			}

@@ -18,6 +18,32 @@ impl<'a> Cache<'a> {
 		unsafe { self.ring[0].unwrap_unchecked() }
 	}
 
+	#[inline(always)]
+	pub fn get(&self, pos: isize) -> Option<&Token<'a>> {
+		debug_assert!((-8..=7).contains(&pos));
+
+		self.ring[pos].as_ref()
+	}
+
+	#[inline]
+	pub fn prev(&mut self) -> Option<Token<'a>> {
+		match self.prev_with_whitespace() {
+			Some(Token::Whitespace) => self.prev_with_whitespace(),
+			token => token,
+		}
+	}
+
+	#[inline]
+	pub fn prev_with_whitespace(&mut self) -> Option<Token<'a>> {
+		let prev = self.ring[-1];
+
+		if prev.is_some() {
+			self.ring.go_prev()
+		}
+
+		prev
+	}
+
 	#[inline]
 	pub fn new(mut parser: Parser<'a>) -> Result<Self> {
 		let mut token = parser.next()?;
@@ -61,13 +87,6 @@ impl<'a> Cache<'a> {
 		Ok(self[pos as isize])
 	}
 
-	#[inline]
-	pub fn get(&self, pos: isize) -> Option<&Token<'a>> {
-		debug_assert!((-8..=7).contains(&pos));
-
-		self.ring[pos].as_ref()
-	}
-
 	/// Will try to peek a next token that is not [`Token::Whitespace`]
 	#[inline]
 	pub fn peek_next(&mut self) -> Result<Token<'a>> {
@@ -77,13 +96,21 @@ impl<'a> Cache<'a> {
 		}
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn peek_next_with_whitespace(&mut self) -> Result<Token<'a>> {
 		self.peek(1)
 	}
 
+	#[inline]
+	pub fn peek_prev(&self) -> Option<Token<'a>> {
+		match self.ring[-1] {
+			Some(Token::Whitespace) => self.ring[-2],
+			other => other,
+		}
+	}
+
 	#[inline(always)]
-	pub fn prev(&self) -> Option<Token<'a>> {
+	pub fn peek_prev_with_whitespace(&self) -> Option<Token<'a>> {
 		self.ring[-1]
 	}
 }
@@ -100,7 +127,7 @@ impl<'a> std::ops::Index<isize> for Cache<'a> {
 impl<'a> std::fmt::Debug for Cache<'a> {
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		if let Some(prev) = self.prev() {
+		if let Some(prev) = self.peek_prev_with_whitespace() {
 			writeln!(f, "Previous token: {:?}", prev)?;
 		}
 

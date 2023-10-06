@@ -15,8 +15,16 @@ fn test_all() {
 
 		#[allow(unused_must_use)]
 		pool.execute(move || {
-			let res = format(&case.before);
-			tx.send((num, case, res));
+			let first_pass = format(&case.before);
+
+			let second_pass = if let Ok((out, _)) = &first_pass {
+				let second_pass = format(out);
+				Some(second_pass)
+			} else {
+				None
+			};
+
+			tx.send((num, case, first_pass, second_pass));
 		});
 
 		total += 1;
@@ -26,7 +34,7 @@ fn test_all() {
 
 	let mut failed = 0;
 
-	while let Ok((num, case, res)) = rx.recv_timeout(std::time::Duration::from_secs(30)) {
+	while let Ok((num, case, first, second)) = rx.recv_timeout(std::time::Duration::from_secs(10)) {
 		let Case {
 			complexity,
 			order,
@@ -35,7 +43,8 @@ fn test_all() {
 			..
 		} = case;
 
-		if complexity == 4 && failed > 0 {
+		// Ignore bigger tests output if any small test fails
+		if complexity >= 4 && failed > 0 {
 			total -= 1;
 			continue;
 		}
@@ -50,21 +59,45 @@ fn test_all() {
 			.green()
 		);
 
-		match res {
-			Ok((stdout, _)) => match differentiate(&stdout, &after) {
-				Ok(_) => println!("{}", "Passed!".green()),
+		match first {
+			Ok((stdout, stderr)) => match differentiate(&stdout, &after) {
+				Ok(_) => {
+					match second.unwrap() {
+						Ok((stdout, stderr)) => match differentiate(&stdout, &after) {
+							Ok(_) => println!("{}", "Passed!".green()),
+							Err(diff) => {
+								let msg = format_error_message(&after, diff);
+								println!("{}", "Failed second pass!".red());
+								println!("stderr:\n{}", stderr.orange());
+
+								println!("{}", msg);
+
+								failed += 1;
+							}
+						},
+
+						Err((_, stderr)) => {
+							println!("{}", "Failed second pass!".red());
+							println!("stderr:\n{}", stderr.orange());
+
+							failed += 1;
+						}
+					};
+				}
 
 				Err(diff) => {
-					let w = format_error_message(&after, diff);
+					let msg = format_error_message(&after, diff);
 					println!("{}", "Failed!".red());
-					println!("{}", w);
+					println!("stderr:\n{}", stderr.orange());
+
+					println!("{}", msg);
 
 					failed += 1;
 				}
 			},
 			Err((_, stderr)) => {
 				println!("{}", "Failed!".red());
-				println!("stderr:\n{}\n", stderr.orange());
+				println!("stderr:\n{}", stderr.orange());
 
 				failed += 1;
 			}
