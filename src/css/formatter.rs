@@ -837,6 +837,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			Token::AtRule(_)
 				| Token::BracketSquareOpen
 				| Token::Colon
+				| Token::Delim(ASCII::FULL_STOP)
 				| Token::Function(_)
 				| Token::Hash(_)
 				| Token::Ident(_)

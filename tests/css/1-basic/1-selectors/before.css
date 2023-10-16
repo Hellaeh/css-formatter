@@ -1,0 +1,26 @@
+/* Testing common selector and spacing */
+a, 
+a b ,
+a .b, 
+a #b ,
+a.b ,
+a#b,
+.a .b ,
+.a #b,
+a[href="something"],
+a [class="something"]
+{
+  
+}
+
+*,
+*::before,
+*::after {
+  
+}
+
+: root {
+  
+}
+
+: has() {}

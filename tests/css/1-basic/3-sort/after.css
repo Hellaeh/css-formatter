@@ -26,5 +26,7 @@
 	--a: white;
 	--some-color: red;
 	--some-value: hsl(100, 100%, 100%);
+
+	unknown-property: some value;
 }
 

@@ -17,11 +17,11 @@ color: green;
 +.b{color:green;}
 +#b{color:green;}
 >.b+a{color:green;}
-+b{color:green;}
-~b{color:green;}
-+.b{color:green;}
-+#b{color:green;}
->.b + a{color:green;}
+&+b{color:green;}
+&~b{color:green;}
+&+.b{color:green;}
+&+#b{color:green;}
+&>.b + a{color:green;}
 .parent &{		color: green;
 	}
              &{

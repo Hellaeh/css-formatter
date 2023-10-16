@@ -11,6 +11,7 @@
 	position: absolute;
 	top: 0;
 	height: 100px;
+	unknown-property: some value;
 	width: 100%;
 	border: 1px solid var(--some-color);
 	gap: 1rem;
