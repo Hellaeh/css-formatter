@@ -98,5 +98,4 @@ fn format<'a, S: AsRef<[u8]> + 'a>(
 
 mod consts;
 mod css;
-mod trie;
 mod utils;
