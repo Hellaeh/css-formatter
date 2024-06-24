@@ -5,7 +5,7 @@ impl ASCII {
 	pub const AMPERSAND: u8 = b'&';
 	pub const ASTERISK: u8 = b'*';
 	pub const AT: u8 = b'@';
-	pub const BACK_SLASH: u8 = b'\\';
+	pub const BACKSLASH: u8 = b'\\';
 	pub const COLON: u8 = b':';
 	pub const COMMA: u8 = b',';
 	pub const CR: u8 = b'\r';
@@ -14,7 +14,7 @@ impl ASCII {
 	pub const DASH: u8 = b'-';
 	pub const FULL_STOP: u8 = b'.';
 	pub const DOUBLE_QUOTE: u8 = b'\"';
-	pub const FORWARD_SLASH: u8 = b'/';
+	pub const SLASH: u8 = b'/';
 	pub const GT: u8 = b'>';
 	pub const HASH: u8 = b'#';
 	pub const LF: u8 = b'\n';

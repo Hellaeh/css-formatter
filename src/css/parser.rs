@@ -38,6 +38,17 @@ impl<'a> Parser<'a> {
 		Self { buf: input, pos: 0 }
 	}
 
+	#[inline(always)]
+	fn get_current_byte(&self) -> u8 {
+		debug_assert!(!self.is_eof());
+		unsafe { *self.buf.get_unchecked(self.pos()) }
+	}
+
+	#[inline(always)]
+	fn peek_next_byte(&self) -> Option<u8> {
+		self.buf.get(self.pos() + 1).copied()
+	}
+
 	#[inline]
 	pub fn next(&mut self) -> Result<Token<'a>> {
 		let bytes = self.buf;
@@ -46,21 +57,21 @@ impl<'a> Parser<'a> {
 			return Err(Error::EOF);
 		}
 
-		let cur = unsafe { bytes.get_unchecked(self.pos()) };
-		let next = bytes.get(self.pos() + 1).copied();
+		let cur = self.get_current_byte();
+		let next = self.peek_next_byte();
 
 		if !cur.is_ascii() {
 			return Err(Error::NonASCII);
 		}
 
-		let token = match *cur {
+		let token = match cur {
 			// A comment or delim token
-			ASCII::FORWARD_SLASH => {
+			ASCII::SLASH => {
 				if next == Some(ASCII::ASTERISK) {
 					self.parse_comment(bytes)?
 				} else {
 					self.advance(1);
-					Token::Delim(ASCII::FORWARD_SLASH)
+					Token::Delim(ASCII::SLASH)
 				}
 			}
 
@@ -137,7 +148,7 @@ impl<'a> Parser<'a> {
 			_ => {
 				self.advance(1);
 
-				match *cur {
+				match cur {
 					b'\0' => self.next()?,
 					ASCII::PAREN_OPEN => Token::BracketRoundOpen,
 					ASCII::PAREN_CLOSE => Token::BracketRoundClose,
@@ -166,7 +177,7 @@ impl<'a> Parser<'a> {
 		let start = self.pos();
 
 		while !self.is_eof() {
-			let cur = unsafe { *bytes.get_unchecked(self.pos()) };
+			let cur = self.get_current_byte();
 
 			if cur == ASCII::ASTERISK {
 				let Some(next) = bytes.get(self.pos() + 1).copied() else {
@@ -174,7 +185,7 @@ impl<'a> Parser<'a> {
 					break;
 				};
 
-				if next == ASCII::FORWARD_SLASH {
+				if next == ASCII::SLASH {
 					let res = Token::Comment(&bytes[start..self.pos()]);
 					// Step over comment closing seq `*/`
 					self.advance(2);
@@ -199,7 +210,7 @@ impl<'a> Parser<'a> {
 		let mut is_function = false;
 
 		while !self.is_eof() {
-			let cur = unsafe { *bytes.get_unchecked(self.pos()) };
+			let cur = self.get_current_byte();
 
 			if !matches!(cur, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | ASCII::DASH | ASCII::UNDERSCORE) {
 				if cur == ASCII::PAREN_OPEN && opening != ASCII::AT {
@@ -230,14 +241,14 @@ impl<'a> Parser<'a> {
 	fn parse_number(&mut self, bytes: &'a [u8]) -> Result<Token<'a>> {
 		let start = self.pos();
 
-		let mut cur = unsafe { *bytes.get_unchecked(self.pos()) };
+		let mut cur = self.get_current_byte();
 
 		if matches!(cur, ASCII::DASH | ASCII::PLUS | ASCII::FULL_STOP) {
 			self.advance(1);
 		}
 
 		while !self.is_eof() {
-			cur = unsafe { *bytes.get_unchecked(self.pos()) };
+			cur = self.get_current_byte();
 
 			// Matches (we don't care about validity): 1px, 1rem, 100%, +110e10, -110, +++++++++1, .1..1
 			if !matches!(cur,  ASCII::PERCENTAGE| ASCII::PLUS | ASCII::DASH | ASCII::FULL_STOP | b'A'..=b'Z'| b'a'..=b'z' |b'0'..=b'9' )
@@ -258,7 +269,7 @@ impl<'a> Parser<'a> {
 		let start = self.pos();
 
 		while !self.is_eof() {
-			let cur = unsafe { *bytes.get_unchecked(self.pos()) };
+			let cur = self.get_current_byte();
 
 			if cur == quote {
 				let token = Token::String(&bytes[start..self.pos()]);
@@ -272,7 +283,7 @@ impl<'a> Parser<'a> {
 				break;
 			}
 
-			if cur == ASCII::BACK_SLASH {
+			if cur == ASCII::BACKSLASH {
 				// Ignore any escape seq
 				self.advance(1);
 			}
@@ -295,9 +306,9 @@ impl<'a> Parser<'a> {
 
 		// Step over until non whitespace
 		while !self.is_eof() {
-			let cur = unsafe { bytes.get_unchecked(self.pos()) };
+			let cur = self.get_current_byte();
 
-			if !matches!(*cur, ASCII::LF | ASCII::CR | ASCII::TAB | ASCII::SPACE) {
+			if !matches!(cur, ASCII::LF | ASCII::CR | ASCII::TAB | ASCII::SPACE) {
 				break;
 			}
 

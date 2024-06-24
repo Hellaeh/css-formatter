@@ -5,6 +5,7 @@ pub use trie::Trie;
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Group {
+	// FIXME: Remove or find a use
 	ParentLayout = 0,
 	Positioning = 1,
 	Layout = 2,
@@ -26,14 +27,14 @@ pub enum Group {
 pub struct Descriptor<'a> {
 	name: &'a str,
 	group: Group,
-	order: u64,
+	order: u16,
 }
 
 macro_rules! group_css_props {
-	({ $($group: expr => ($lexicographical_order: expr, $variant: ident, $repr: expr)$(,)?)* }) => {
+	($($group: expr => ($lexicographical_order: expr, $variant: ident, $repr: expr)$(,)?)*) => {
 		/// Containing "all" CSS properties
 		/// Provided a handy method that returns property [`descriptor`](Descriptor)
-		#[repr(usize)]
+		#[repr(u16)]
 		#[allow(dead_code)]
 		#[derive(Clone, Copy, Debug)]
 		pub enum Property {
@@ -44,7 +45,7 @@ macro_rules! group_css_props {
 			#[inline]
 			fn from(value: Property) -> Self {
 				match value {
-					$(Property::$variant => Descriptor { name: $repr, group: $group, order: $lexicographical_order }),*
+					$(Property::$variant => Descriptor { name: $repr, group: $group, order: value as u16 }),*
 				}
 			}
 		}
@@ -52,7 +53,7 @@ macro_rules! group_css_props {
 }
 
 // We have Groups of properties and each group have a custom "lexicographical" order
-group_css_props!({
+group_css_props!(
 	Group::Animation => (1, Animation, "animation"), // Creates an animating element
 	Group::Animation => (1, AnimationName, "animation-name"), // Defines a name for the animation
 	Group::Animation => (2, AnimationDelay, "animation-delay"), // Sets a delay before an animation begins
@@ -63,8 +64,8 @@ group_css_props!({
 	Group::Animation => (3, AnimationIterationCount, "animation-iteration-count"), // Sets the number of times an animation is played
 	Group::Animation => (3, AnimationPlayState, "animation-play-state"), // Sets the animation play state to running or paused
 
-	Group::BoxModel => (100, BoxSizing, "box-sizing"), // Sets how element height and width are calculated
 	Group::BoxModel => (100, AspectRatio, "aspect-ratio"),
+	Group::BoxModel => (100, BoxSizing, "box-sizing"), // Sets how element height and width are calculated
 	Group::BoxModel => (110, Height, "height"), // Sets the height of an element
 	Group::BoxModel => (110, Width, "width"), // Sets the width of an element
 	Group::BoxModel => (120, MaxHeight, "max-height"), // Sets the maximumn height for an element
@@ -104,9 +105,9 @@ group_css_props!({
 	Group::Display => (1010, Transform, "transform"), // Applies a 2D or 3D transformation to an element
 	Group::Display => (1010, TransformOrigin, "transform-origin"), // Sets the origin for the transformation of the element
 	Group::Display => (1010, TransformStyle, "transform-style"), // Specifies the display behavior of 3D space nested elements
-	Group::Display => (1011, Translate, "translate"), // Allows you to specify translation transforms individually and independently of the transform property
-	Group::Display => (1011, Scale, "scale"), // Allows you to specify scale transforms individually and independently of the transform property
 	Group::Display => (1011, Rotate, "rotate"), // Allows you to specify rotation transforms individually and independently of the transform property
+	Group::Display => (1011, Scale, "scale"), // Allows you to specify scale transforms individually and independently of the transform property
+	Group::Display => (1011, Translate, "translate"), // Allows you to specify translation transforms individually and independently of the transform property
 	Group::Display => (1020, BoxShadow, "box-shadow"), // Adds a shadow effect to an element
 	Group::Display => (1020, CaretColor, "caret-color"), // Sets the color of the blinking mouse caret
 	Group::Display => (1020, ClipPath, "clip-path"), // Clips an element inside a specific shape or SVG
@@ -175,6 +176,8 @@ group_css_props!({
 	Group::Layout => (112, FlexShrink, "flex-shrink"), // Specifies how a flex item can shrink inside the container
 	Group::Layout => (112, FlexWrap, "flex-wrap"), // Specifies how flexible items wrap inside the container
 	Group::Layout => (120, Grid, "grid"), // Defines a grid layout with responsive rows and columns
+	Group::Layout => (120, JustifyItems, "justify-items"), // Is set on the grid container. Specifies the alignment of grid items in the inline direction
+	Group::Layout => (120, JustifySelf, "justify-self"), // Is set on the grid item. Specifies the alignment of the grid item in the inline direction
 	Group::Layout => (121, GridTemplate, "grid-template"), // Divides a page into sections with a size, position, and layer
 	Group::Layout => (121, GridTemplateAreas, "grid-template-areas"), // Specifies area in a grid container
 	Group::Layout => (121, GridTemplateColumns, "grid-template-columns"), // Sets the number and width of columns in a grid container
@@ -192,8 +195,6 @@ group_css_props!({
 	Group::Layout => (122, GridRowEnd, "grid-row-end"), // Specifies in which rowLine the grid item will end
 	Group::Layout => (122, GridRowGap, "grid-row-gap"), // Specifies the gap size between rows in a grid container
 	Group::Layout => (122, GridRowStart, "grid-row-start"), // Specifies in which row line the grid item will start
-	Group::Layout => (120, JustifyItems, "justify-items"), // Is set on the grid container. Specifies the alignment of grid items in the inline direction
-	Group::Layout => (120, JustifySelf, "justify-self"), // Is set on the grid item. Specifies the alignment of the grid item in the inline direction
 	Group::Layout => (130, BorderCollapse, "border-collapse"), // Sets table borders to single collapsed line or separated
 	Group::Layout => (130, BorderSpacing, "border-spacing"), // Sets the adjacent table cell distance
 	Group::Layout => (130, CaptionSide, "caption-side"), // Defines on which side of the table a caption is placed
@@ -284,11 +285,11 @@ group_css_props!({
 	Group::Typography => (50, TextTransform, "text-transform"), // Defines text capitalization or casing
 	Group::Typography => (50, TextUnderlineOffset, "text-underline-offset"), // Sets the offset distance of an underline text
 	Group::Typography => (60, TextRendering, "text-rendering") // Provides information to the rendering engine about what to optimize for when rendering text
-});
+);
 
 impl<'a> Property {
 	#[inline(always)]
-	pub fn to_descriptor(self) -> Descriptor<'a> {
+	pub fn descriptor(self) -> Descriptor<'a> {
 		std::convert::Into::<Descriptor>::into(self)
 	}
 }
@@ -322,14 +323,10 @@ impl<'a> Descriptor<'a> {
 	pub fn group(&self) -> Group {
 		self.group
 	}
-
-	#[inline(always)]
-	pub fn order(&self) -> u64 {
-		self.order
-	}
 }
 
 impl<'a> Ord for Descriptor<'a> {
+	#[inline]
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		self
 			.group
@@ -340,6 +337,7 @@ impl<'a> Ord for Descriptor<'a> {
 }
 
 impl<'a> PartialOrd for Descriptor<'a> {
+	#[inline(always)]
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}

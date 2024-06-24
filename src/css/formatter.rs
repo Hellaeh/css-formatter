@@ -60,6 +60,23 @@ pub enum Error<'a> {
 	UnexpectedUTF8,
 }
 
+impl<'a> Error<'a> {
+	pub fn leak(self) -> Error<'static> {
+		match self {
+			Error::BadComment => Error::BadComment,
+			Error::BadString => Error::BadString,
+			Error::IO(err) => Error::IO(err),
+			Error::TooManyLevelsOfIndentation => Error::TooManyLevelsOfIndentation,
+			Error::UnexpectedEOF => Error::UnexpectedEOF,
+			Error::UnexpectedUTF8 => Error::UnexpectedUTF8,
+			Error::UnexpectedToken { token, line } => Error::UnexpectedToken {
+				token: token.leak(),
+				line,
+			},
+		}
+	}
+}
+
 #[derive(Debug)]
 pub struct Formatter<'a, T> {
 	token_cache: Cache<'a>,
@@ -98,12 +115,11 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 			match self.token_cache.next() {
 				Err(ParserError::EOF) => break,
-				Err(err) => {
-					// TODO: Should crash or ignore
-					eprintln!("Parsing error: {err:?}");
-				}
 
-				_ => {}
+				// TODO: Should crash or ignore
+				Err(err) => eprintln!("Parsing error: {err:?}"),
+
+				_ => continue,
 			};
 		}
 
@@ -120,7 +136,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		let Token::AtRule(at_rule) = self.token_cache.current() else {
 			debug_unexpected_token!(self.token_cache.current(), self);
 
-			unsafe { std::hint::unreachable_unchecked() };
+			#[allow(unreachable_code)]
+			{
+				unsafe { std::hint::unreachable_unchecked() };
+			}
 		};
 
 		self.context.write_all(at_rule)?;
@@ -169,7 +188,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				Token::BracketRoundClose => self.context.write_u8(ASCII::PAREN_CLOSE)?,
 
 				Token::BracketCurlyOpen => {
-					// Hack??
+					// FIXME: `Keyframes` is special case, and one of the reasons `format_block` exists
+					// TODO: future-proofing
 					if self.context.indent() == 0 || at_rule == b"@keyframes" {
 						self.format_block()?;
 					} else {
@@ -209,7 +229,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			}
 		}
 
-		// operator might be composite `*=` or simple `=`
+		// operator could be composite `*=` or single `=`
 		{
 			let Token::Delim(del) = self.token_cache.next()? else {
 				unexpected_token!(self.token_cache.current(), self);
@@ -268,6 +288,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 		loop {
 			match self.token_cache.current() {
+				Token::BracketCurlyClose => break,
+
 				Token::Whitespace => self.process_whitespace()?,
 
 				Token::Comment(_) => self.format_comment()?,
@@ -290,24 +312,20 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.flush()?;
 				}
 
-				Token::BracketCurlyClose => {
-					unsafe { self.context.indent_dec().unwrap_unchecked() }
-
-					self.context.write_u8(ASCII::CURLY_CLOSE)?;
-					self.context.flush()?;
-
-					// Add empty line after block, if there's more content
-					if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
-						self.context.flush()?;
-					}
-
-					break;
-				}
-
 				token => unexpected_token!(token, self),
 			}
 
 			self.token_cache.next_with_whitespace()?;
+		}
+
+		unsafe { self.context.indent_dec().unwrap_unchecked() }
+
+		self.context.write_u8(ASCII::CURLY_CLOSE)?;
+		self.context.flush()?;
+
+		// Add empty line after block, if there's more content
+		if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
+			self.context.flush()?;
 		}
 
 		Ok(())
@@ -324,7 +342,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		let Token::Ident(bytes) = self.token_cache.current() else {
 			debug_unexpected_token!(self.token_cache.current(), self);
 
-			unsafe { unreachable_unchecked() };
+			#[allow(unreachable_code)]
+			{
+				unsafe { std::hint::unreachable_unchecked() };
+			}
 		};
 
 		self.context.write_all(bytes)?;
@@ -339,6 +360,13 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 		loop {
 			match self.token_cache.current() {
+				// `;`
+				Token::Semicolon => {
+					self.context.write_u8(ASCII::SEMICOLON)?;
+
+					break;
+				}
+
 				Token::Comment(_) => self.format_comment()?,
 
 				// Trailing `;` is optional
@@ -346,13 +374,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 					self.context.write_u8(ASCII::SEMICOLON)?;
 
 					unexpected_token!(Token::BracketCurlyClose, self)
-				}
-
-				// `;`
-				Token::Semicolon => {
-					self.context.write_u8(ASCII::SEMICOLON)?;
-
-					break;
 				}
 
 				// `content: ":)";`
@@ -418,46 +439,21 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		// Order: 1st
 		let mut declarations = Vec::new();
 
+		// Nested CSS blocks (if any)
 		// Order: 2nd
-		let current_layer = Vec::new();
-		self.context.layer_push(current_layer);
+		self.context.layer_push(Vec::new());
 
 		self.token_cache.next()?;
 
 		loop {
 			match self.token_cache.current() {
-				// This is where we return
-				Token::BracketCurlyClose => {
-					let buf = unsafe { self.context.layer_pop().unwrap_unchecked() };
-
-					if !declarations.is_empty() {
-						self.write_declarations(declarations)?;
-
-						if !buf.is_empty() {
-							self.context.flush()?;
-						}
-					}
-
-					self.context.current_output().write_all(&buf)?;
-
-					// SAFETY: by recursive nature it's impossible to cause integer underflow
-					unsafe { self.context.indent_dec().unwrap_unchecked() };
-
-					self.context.write_u8(ASCII::CURLY_CLOSE)?;
-					self.context.flush()?;
-
-					// Add empty line after block, if there's more content
-					if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
-						self.context.flush()?;
-					}
-
-					break;
-				}
+				Token::BracketCurlyClose => break,
 
 				Token::Comment(_) => self.format_comment()?,
 
 				// Declaration: `background: blue;` or `color: green;`
-				// Not: `div&` or `div &`
+				// Not nested selector: `div&` or `div &`
+				// TODO: cleanup
 				Token::Ident(bytes)
 					if self.context.is_empty()
 						&& !matches!(
@@ -499,6 +495,29 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.token_cache.next()?;
 		}
 
+		let buf = unsafe { self.context.layer_pop().unwrap_unchecked() };
+
+		if !declarations.is_empty() {
+			self.write_declarations(declarations)?;
+
+			if !buf.is_empty() {
+				self.context.flush()?;
+			}
+		}
+
+		self.context.current_output().write_all(&buf)?;
+
+		// SAFETY: We did increment above
+		unsafe { self.context.indent_dec().unwrap_unchecked() };
+
+		self.context.write_u8(ASCII::CURLY_CLOSE)?;
+		self.context.flush()?;
+
+		// Add empty line after block, if there's more content
+		if !matches!(self.token_cache.peek_next(), Ok(Token::BracketCurlyClose)) {
+			self.context.flush()?;
+		}
+
 		Ok(())
 	}
 
@@ -509,7 +528,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			debug_unexpected_token!(self.token_cache.current(), self);
 
 			// #Safety: Caller must ensure this function is called with valid token
-			unsafe { unreachable_unchecked() }
+			#[allow(unreachable_code)]
+			{
+				unsafe { std::hint::unreachable_unchecked() };
+			}
 		};
 
 		self.context.write_all(bytes)?;
@@ -519,22 +541,22 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		let mut level = 0;
 		loop {
 			match self.token_cache.current() {
+				Token::BracketRoundClose => {
+					self.context.write_u8(ASCII::PAREN_CLOSE)?;
+
+					if level == 0 {
+						break;
+					}
+
+					level -= 1;
+				}
+
 				Token::Whitespace => self.process_whitespace()?,
 
 				Token::BracketRoundOpen => {
 					self.context.write_u8(ASCII::PAREN_OPEN)?;
 
 					level += 1;
-				}
-
-				Token::BracketRoundClose => {
-					self.context.write_u8(ASCII::PAREN_CLOSE)?;
-
-					if level == 0 {
-						break;
-					} else {
-						level -= 1;
-					}
 				}
 
 				Token::Comma => {
@@ -558,6 +580,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				// Nested selectors: `:has(:is(...))`
 				Token::Colon => self.format_pseudo()?,
 
+				// Selectors :is([class="some-class"])
 				Token::BracketSquareOpen => self.format_attribute_selector()?,
 
 				token => unexpected_token!(token, self),
@@ -606,10 +629,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		loop {
 			match self.token_cache.current() {
 				// Format block and return
-				Token::BracketCurlyOpen => {
-					self.format_declaration_block()?;
-					break;
-				}
+				Token::BracketCurlyOpen => return self.format_declaration_block(),
 
 				Token::Whitespace => self.process_whitespace()?,
 
@@ -639,8 +659,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 			self.token_cache.next_with_whitespace()?;
 		}
-
-		Ok(())
 	}
 
 	#[inline]
@@ -658,14 +676,17 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 		if bytes.len() > 1 && bytes[0] == ASCII::DASH {
 			return if bytes[1] == ASCII::DASH {
+				// --variable: somevalue
 				Descriptor::variable(name)
 			} else {
+				// -webkit-line-clamp
 				Descriptor::unknown(name)
 			};
 		}
 
-		if let Some(desc) = self.props.get(bytes).copied() {
-			return desc;
+		if let Some(desc) = self.props.get(bytes) {
+			// copy
+			return *desc;
 		}
 
 		Descriptor::unknown(name)
@@ -683,12 +704,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	#[inline]
 	fn process_delim(&mut self, delim: u8) -> Result<'a, ()> {
 		match delim {
-			ASCII::ASTERISK
-			| ASCII::DASH
-			| ASCII::FORWARD_SLASH
-			| ASCII::GT
-			| ASCII::PLUS
-			| ASCII::TILDE => {
+			ASCII::ASTERISK | ASCII::DASH | ASCII::SLASH | ASCII::GT | ASCII::PLUS | ASCII::TILDE => {
 				if !self.context.is_empty() && !matches!(self.context.last(), Some(b' ')) {
 					self.context.write_space()?;
 				}
@@ -851,6 +867,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 		Ok(())
 	}
 
+	#[inline]
 	fn write_declarations(
 		&mut self,
 		mut declarations: Vec<(Descriptor<'a>, line::Line)>,

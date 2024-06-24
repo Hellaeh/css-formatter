@@ -5,18 +5,20 @@ const BITS: usize = SIZE - 1;
 /// Fixed length ring buffer
 ///
 /// Proper testing in debug mode required.
-/// Generally unsafe
-pub struct RingBuffer<T> {
-	buf: [T; SIZE],
+/// Generally unsafe af
+pub struct RingBuffer<T, const N: usize = SIZE> {
+	buf: [T; N],
 	writer: usize,
 	reader: usize,
 }
 
-impl<T: Copy> RingBuffer<T> {
+impl<T: Copy, const N: usize> RingBuffer<T, N> {
 	#[inline]
 	pub fn new(initial: T) -> Self {
+		debug_assert!(N.is_power_of_two());
+
 		Self {
-			buf: [initial; SIZE],
+			buf: [initial; N],
 			writer: 1,
 			reader: 0,
 		}
@@ -40,15 +42,15 @@ impl<T> RingBuffer<T> {
 	}
 
 	#[inline]
-	pub fn push(&mut self, token: T) {
+	pub fn push(&mut self, value: T) {
 		debug_assert!(
 			self.writer - self.reader < SIZE,
-			"`Writer` is lap ahead of `Reader`. This is Undefined Behavior."
+			"`Writer` is lap ahead of `Reader`. This is Undefined Behavior"
 		);
 
 		let i = self.writer & BITS;
 
-		self.buf[i] = token;
+		self.buf[i] = value;
 		self.writer += 1;
 	}
 

@@ -34,11 +34,7 @@ impl Splitter {
 			panic!("No splits found");
 		}
 
-		dbg!(&splits);
-
 		Self::flatten(buf, splits);
-
-		dbg!(&splits);
 
 		splits.into_iter().map_windows(move |[a, b]| {
 			let from = (a.at as isize + a.offset_from as isize) as usize;

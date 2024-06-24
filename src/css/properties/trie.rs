@@ -12,8 +12,8 @@ impl<'a> Trie<'a> {
 		let mut inner = hel_trie::Trie::new();
 
 		for i in 0..std::mem::variant_count::<Property>() {
-			let prop = unsafe { std::mem::transmute::<usize, Property>(i) };
-			let desc = prop.to_descriptor();
+			let prop = unsafe { std::mem::transmute::<u16, Property>(i as u16) };
+			let desc = prop.descriptor();
 			inner.insert(desc.name(), desc);
 		}
 
@@ -24,6 +24,7 @@ impl<'a> Trie<'a> {
 impl<'a> std::ops::Deref for Trie<'a> {
 	type Target = hel_trie::Trie<Descriptor<'a>>;
 
+	#[inline]
 	fn deref(&self) -> &Self::Target {
 		&self.inner
 	}

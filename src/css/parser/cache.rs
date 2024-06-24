@@ -7,8 +7,8 @@ use self::ring_buffer::RingBuffer;
 pub struct Cache<'a> {
 	parser: Parser<'a>,
 
-	// Will contain a queue of tokens, with 0 index represent
-	// current token
+	/// Will contain a queue of tokens, with 0 index represent
+	/// current token
 	ring: RingBuffer<Option<Token<'a>>>,
 }
 

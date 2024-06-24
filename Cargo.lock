@@ -4,13 +4,13 @@ version = 3
 
 [[package]]
 name = "hel-colored"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc0b37dca61a93e94545fed0d7de6e40b4babf5eed87155a629f1d5c6d051fb7"
+checksum = "bc98a767ffa3a9fc20277edc64690aed895cd3dcf91f8bce6e0d4623bc8b16c7"
 
 [[package]]
 name = "hel-css-formatter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hel-colored",
  "hel-thread-pool",
@@ -19,9 +19,9 @@ dependencies = [
 
 [[package]]
 name = "hel-thread-pool"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b401da317a3e5cb74d91a3d283a42e3e197612abfea9472a1e02d2a2966a86d"
+checksum = "8cb672764bbd7d6ec331bb7490bd35a11942870b97d5f1a73520ee3f94e431f1"
 
 [[package]]
 name = "hel-trie"
