@@ -16,19 +16,14 @@ a:is(
 *:has(
 	div > span > .some-class,
 	span > span > #some-id,
-	[class*="some_class"]:has(
-		div,
-		span,
-		a,
-		p,
-		.child,
-		#child
-	)
+	[class*="some_class"]:has(div, span, a, p, .child, #child)
 ) {
 	color: red;
 }
 
-super deep and long selector that you can break into smaller parts and also exceeds any length limit possible {
+super deep and long selector that you can break into smaller parts and also
+	exceeds any length limit possible
+{
 	color: red;
 }
 

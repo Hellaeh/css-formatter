@@ -3015,8 +3015,8 @@ pre>code {
     grid-template-columns: .5fr .5fr;
     grid-template-areas:
       "featured minor-benefit-0"
-      "featured minor-benefit-1 "
-      "major-benefit-1 major-benefit-0 ";
+      "featured minor-benefit-1"
+      "major-benefit-1 major-benefit-0";
   }
 }
 
@@ -11060,10 +11060,10 @@ button.bg-blue:focus {
       border-color: transparent;
     }
 
-    .u-header--bg-transparent.u-header--bordered:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__section,
-    .u-header--bg-transparent.u-header--bordered:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__navbar-brand,
-    .u-header--bg-transparent.u-header--bordered:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-item-user,
-    .u-header--bg-transparent.u-header--bordered:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__navbar-v-divider {
+    .u-header--bg-transparent.u-header--bordered:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__section,
+    .u-header--bg-transparent.u-header--bordered:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__navbar-brand,
+    .u-header--bg-transparent.u-header--bordered:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-item-user,
+    .u-header--bg-transparent.u-header--bordered:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__navbar-v-divider {
       border-color: rgba(255, 255, 255, 0.15);
     }
 
@@ -11099,23 +11099,23 @@ button.bg-blue:focus {
       transition: 0s;
     }
 
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-item:hover .u-header__nav-link {
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-item:hover .u-header__nav-link {
       color: #fff;
     }
 
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-link,
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-item-user-name,
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) [class*="btn-text-"] {
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-link,
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-item-user-name,
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) [class*="btn-text-"] {
       color: rgba(255, 255, 255, 0.9);
     }
 
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-link:hover,
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-item-user-name:hover,
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) [class*="btn-text-"]:hover {
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-link:hover,
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-item-user-name:hover,
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) [class*="btn-text-"]:hover {
       color: #fff;
     }
 
-    .u-header--white-nav-links:not(.bg-white):not(.js-header-fix-moment):not(.u-scrolled) .u-header__nav-item-user {
+    .u-header--white-nav-links:not(.bg-white, .js-header-fix-moment, .u-scrolled) .u-header__nav-item-user {
       background-color: rgba(255, 255, 255, 0.1);
     }
   }

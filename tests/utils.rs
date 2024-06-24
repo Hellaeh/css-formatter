@@ -45,6 +45,16 @@ pub struct Case {
 	pub after: String,
 }
 
+impl std::fmt::Debug for Case {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"c: {}, o: {}, name: {}",
+			self.complexity, self.order, self.name
+		)
+	}
+}
+
 pub fn get_test_cases() -> impl Iterator<Item = Case> {
 	// We might store and sort it
 	std::fs::read_dir("tests/css/")
@@ -102,8 +112,8 @@ pub fn get_test_cases() -> impl Iterator<Item = Case> {
 pub struct Difference<'a> {
 	pub row: usize,
 	pub col: usize,
-	pub line_wrong: &'a str,
-	pub line_correct: &'a str,
+	pub actual: &'a str,
+	pub expected: &'a str,
 }
 
 pub fn differentiate<'a>(result: &'a str, should_be: &'a str) -> Result<(), Difference<'a>> {
@@ -130,8 +140,8 @@ pub fn differentiate<'a>(result: &'a str, should_be: &'a str) -> Result<(), Diff
 			return Err(Difference {
 				row,
 				col: i,
-				line_wrong: line.0,
-				line_correct: line.1,
+				actual: line.0,
+				expected: line.1,
 			});
 		}
 
@@ -164,7 +174,7 @@ pub fn format_error_message(should_be: &str, diff: Difference<'_>) -> String {
 			&mut res,
 			"{}",
 			&format!("{current_line:0num_width$} > {}", line)
-				.on_rgb((0, 60, 0))
+				.on_rgb(0, 60, 0)
 				.to_string()
 		)
 		.unwrap();
@@ -175,8 +185,8 @@ pub fn format_error_message(should_be: &str, diff: Difference<'_>) -> String {
 	writeln!(
 		&mut res,
 		"{}",
-		&format!("{current_line:0num_width$} > {}", diff.line_correct)
-			.on_rgb((0, 60, 0))
+		&format!("{current_line:0num_width$} > {}", diff.expected)
+			.on_rgb(0, 60, 0)
 			.to_string()
 	)
 	.unwrap();
@@ -184,8 +194,8 @@ pub fn format_error_message(should_be: &str, diff: Difference<'_>) -> String {
 	writeln!(
 		&mut res,
 		"{}",
-		&format!("{current_line:0num_width$} x {}", diff.line_wrong)
-			.on_rgb((60, 0, 0))
+		&format!("{current_line:0num_width$} x {}", diff.actual)
+			.on_rgb(60, 0, 0)
 			.to_string()
 	)
 	.unwrap();
@@ -197,7 +207,7 @@ pub fn format_error_message(should_be: &str, diff: Difference<'_>) -> String {
 			&mut res,
 			"{}",
 			&format!("{current_line:0num_width$} > {}", line)
-				.on_rgb((0, 60, 0))
+				.on_rgb(0, 60, 0)
 				.to_string()
 		)
 		.unwrap();

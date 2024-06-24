@@ -32,7 +32,7 @@ fn test_all() {
 
 	drop(tx);
 
-	let mut failed = 0;
+	let mut failed = Vec::new();
 
 	while let Ok((num, case, first, second)) = rx.recv_timeout(std::time::Duration::from_secs(10)) {
 		let Case {
@@ -41,10 +41,10 @@ fn test_all() {
 			name,
 			after,
 			..
-		} = case;
+		} = &case;
 
 		// Ignore bigger tests output if any small test fails
-		if complexity >= 4 && failed > 0 {
+		if *complexity >= 4 && failed.len() > 0 {
 			total -= 1;
 			continue;
 		}
@@ -67,12 +67,13 @@ fn test_all() {
 							Ok(_) => println!("{}", "Passed!".green()),
 							Err(diff) => {
 								let msg = format_error_message(&after, diff);
+
 								println!("{}", "Failed second pass!".red());
 								println!("stderr:\n{}", stderr.orange());
 
 								println!("{}", msg);
 
-								failed += 1;
+								failed.push(case);
 							}
 						},
 
@@ -80,26 +81,27 @@ fn test_all() {
 							println!("{}", "Failed second pass!".red());
 							println!("stderr:\n{}", stderr.orange());
 
-							failed += 1;
+							failed.push(case);
 						}
 					};
 				}
 
 				Err(diff) => {
 					let msg = format_error_message(&after, diff);
+
 					println!("{}", "Failed!".red());
 					println!("stderr:\n{}", stderr.orange());
 
 					println!("{}", msg);
 
-					failed += 1;
+					failed.push(case);
 				}
 			},
 			Err((_, stderr)) => {
 				println!("{}", "Failed!".red());
 				println!("stderr:\n{}", stderr.orange());
 
-				failed += 1;
+				failed.push(case);
 			}
 		}
 
@@ -110,8 +112,8 @@ fn test_all() {
 		panic!("{}", "Some of the tests timed out".red());
 	}
 
-	if failed > 0 {
-		panic!("{}", format!("Failed {} tests!", failed).red());
+	if !failed.is_empty() {
+		panic!("{}", format!("Failed:\n{:#?}", failed).red());
 	}
 }
 
