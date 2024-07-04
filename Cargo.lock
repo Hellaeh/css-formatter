@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "consts"
+version = "0.1.0"
+
+[[package]]
+name = "css"
+version = "0.1.0"
+
+[[package]]
 name = "hel-colored"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10,11 +18,13 @@ checksum = "bc98a767ffa3a9fc20277edc64690aed895cd3dcf91f8bce6e0d4623bc8b16c7"
 
 [[package]]
 name = "hel-css-formatter"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
+ "consts",
  "hel-colored",
  "hel-thread-pool",
- "hel-trie",
+ "radix",
+ "ring-buffer",
 ]
 
 [[package]]
@@ -24,17 +34,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cb672764bbd7d6ec331bb7490bd35a11942870b97d5f1a73520ee3f94e431f1"
 
 [[package]]
-name = "hel-trie"
+name = "radix"
 version = "0.1.0"
 dependencies = [
- "map",
- "traits",
+ "hel-colored",
+ "hel-css-formatter",
 ]
 
 [[package]]
-name = "map"
+name = "ring-buffer"
 version = "0.1.0"
 
 [[package]]
-name = "traits"
+name = "tokenizer"
 version = "0.1.0"
+dependencies = [
+ "consts",
+ "ring-buffer",
+]

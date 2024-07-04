@@ -1,0 +1,10 @@
+[package]
+name = "radix"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+hel-colored = { version = "0.6.0", features = ["nested"] }
+hel-css-formatter = { path = "../formatter" }

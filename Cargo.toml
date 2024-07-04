@@ -1,17 +1,8 @@
-[package]
-name = "hel-css-formatter"
-authors = ["Hellaeh <me@hellaeh.com>"]
-version = "0.2.1"
-edition = "2021"
-description = "An opinionated CSS formatter"
-license = "MIT"
-repository = "https://github.com/Hellaeh/css-formatter.git"
-keywords = ["CSS", "formatter"]
-readme = "README.md"
+[workspace]
+resolver = "2"
 
-[dependencies]
-hel-trie = { path = "../../crates/trees/trie" }
-
-[dev-dependencies]
-hel-colored = { version = "0.6.0", features = ["nested"] }
-hel-thread-pool = "0.3.1"
+members = [ "consts", "css",
+  "formatter",
+  "radix",
+  "ring-buffer"
+, "tokenizer"]

@@ -1,0 +1,7 @@
+div{background:conic-gradient(hsl(360,100%,50%),hsl(315,100%,50%),hsl(270,100%,50%),hsl(225,100%,50%),hsl(180,100%,50%),hsl(135,100%,50%),hsl(90,100%,50%),hsl(45,100%,50%),hsl(0,100%,50%));}
+
+div {
+		padding: 
+    66px 0 66px max(   calc((min( 2048px,     87vw) -   1170px )/ 2),   70px );
+  
+}
