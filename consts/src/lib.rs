@@ -1,5 +1,5 @@
 #[allow(clippy::upper_case_acronyms)]
-pub struct ASCII {}
+pub struct ASCII;
 
 impl ASCII {
 	pub const AMPERSAND: u8 = b'&';

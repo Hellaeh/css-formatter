@@ -1,13 +1,9 @@
 use std::hint::unreachable_unchecked;
 use std::io::Write;
 
-use context::{LayerHelper, LayerManager};
-use line::Line;
-
 use consts::ASCII;
 
 use super::parser::{Cache, Error as ParserError};
-use super::properties::{Descriptor, Trie};
 use super::tokens::Token;
 
 use self::context::Context;
@@ -78,13 +74,6 @@ pub enum Error<'a> {
 pub struct Formatter<'a, T> {
 	token_cache: Cache<'a>,
 	context: Context<T>,
-	props: Trie,
-}
-
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Declaration {
-	pub descriptor: Descriptor,
-	pub line: Line,
 }
 
 pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
@@ -312,7 +301,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.token_cache.next_with_whitespace()?;
 		}
 
-		unsafe { self.context.indent_dec().unwrap_unchecked() }
+		unsafe { self.context.indent_dec().unwrap_unchecked() };
 
 		self.context.write_u8(ASCII::CURLY_CLOSE)?;
 		self.context.flush()?;
@@ -343,6 +332,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			debug_unreachable_token!(self.token_cache.current(), self);
 		};
 
+		self.context.declaration_start(bytes);
 		self.context.write_all(bytes)?;
 
 		let Token::Colon = self.token_cache.next()? else {
@@ -355,8 +345,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 		loop {
 			match self.token_cache.current() {
-				// `;`
-				Token::Semicolon => {
+				// Trailing `;` is optional
+				Token::Semicolon | Token::BracketCurlyClose => {
 					self.context.write_u8(ASCII::SEMICOLON)?;
 
 					break;
@@ -364,13 +354,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 
 				// FIXME: Inline comments
 				Token::Comment(_) => return unexpected_token!(self.token_cache.current(), self),
-
-				// Trailing `;` is optional
-				Token::BracketCurlyClose => {
-					self.context.write_u8(ASCII::SEMICOLON)?;
-
-					return unexpected_token!(Token::BracketCurlyClose, self);
-				}
 
 				// `content: ":)";`
 				Token::String(bytes) => {
@@ -412,6 +395,8 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.token_cache.next()?;
 		}
 
+		self.context.declaration_end();
+
 		Ok(())
 	}
 
@@ -426,22 +411,14 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			if !self.context.is_empty() {
 				self.context.write_space()?;
 			}
+
 			self.context.write_u8(ASCII::CURLY_OPEN)?;
 			self.context.flush()?;
 
 			self.token_cache.next()?;
 		}
 
-		self.context.indent_inc()?;
-
-		// Store all declarations for sorting later
-		// Order: 1st
-		let mut declarations = LayerManager::get_declarations(self.context.indent());
-		let mut i = 0;
-
-		// Nested CSS blocks (if any)
-		// Order: 2nd
-		self.context.layer_push(Vec::new());
+		self.context.layer_push()?;
 
 		loop {
 			match self.token_cache.current() {
@@ -452,41 +429,19 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				// Declaration: `background: blue;` or `color: green;`
 				// Not nested selector: `div&` or `div &`
 				// TODO: cleanup
-				Token::Ident(bytes)
+				Token::Ident(_)
 					if self.context.is_empty()
 						&& !matches!(
 							self.token_cache.peek_next()?,
 							Token::Delim(ASCII::AMPERSAND)
 						) =>
 				{
-					let mut decl = declarations.get_or_init(i);
-					let mut line = std::mem::take(&mut decl.line);
-					line.clear();
-
-					decl.descriptor = self.get_descriptor(bytes);
-
-					let replaced = self.context.replace_line(line);
-					let res = self.format_declaration();
-					let line = self.context.replace_line(replaced);
-
-					decl.line = line;
-
-					declarations[i] = decl;
-
-					i += 1;
+					self.format_declaration()?;
 
 					// You can skip trailing `;` in declaration, if next token is `}` ignoring whitespace in between
-					if matches!(
-						res,
-						Err(Error::UnexpectedToken {
-							token: Token::BracketCurlyClose,
-							..
-						})
-					) {
+					if self.token_cache.current() == Token::BracketCurlyClose {
 						break;
 					}
-
-					res?;
 				}
 
 				// Nested CSS ruleset
@@ -503,22 +458,7 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 			self.token_cache.next()?;
 		}
 
-		let buf = unsafe { self.context.layer_pop().unwrap_unchecked() };
-
-		if i > 0 {
-			self.write_declarations(&mut declarations[0..i])?;
-
-			if !buf.is_empty() {
-				self.context.flush()?;
-			}
-		}
-
-		LayerManager::set_declarations(self.context.indent(), declarations);
-
-		self.context.current_output().write_all(&buf)?;
-
-		// SAFETY: We did increment above
-		unsafe { self.context.indent_dec().unwrap_unchecked() };
+		self.context.layer_pop()?;
 
 		self.context.write_u8(ASCII::CURLY_CLOSE)?;
 		self.context.flush()?;
@@ -675,33 +615,10 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 	}
 
 	#[inline]
-	fn get_descriptor(&self, bytes: &[u8]) -> Descriptor {
-		let name = unsafe { std::str::from_utf8_unchecked(bytes) };
-
-		if bytes.len() > 1 && bytes[0] == ASCII::DASH {
-			return if bytes[1] == ASCII::DASH {
-				// --variable: somevalue
-				Descriptor::variable(name)
-			} else {
-				// -webkit-line-clamp
-				Descriptor::unknown(name)
-			};
-		}
-
-		if let Some(desc) = self.props.get(bytes) {
-			// copy
-			return *desc;
-		}
-
-		Descriptor::unknown(name)
-	}
-
-	#[inline]
 	pub fn new(cache: Cache<'a>, output: T) -> Self {
 		Self {
 			token_cache: cache,
 			context: Context::new(output),
-			props: Trie::new(),
 		}
 	}
 
@@ -866,27 +783,6 @@ impl<'a, T: std::io::Write> Formatter<'a, T> {
 				| Token::BracketRoundOpen
 		) {
 			self.context.write_space()?;
-		}
-
-		Ok(())
-	}
-
-	#[inline]
-	fn write_declarations(&mut self, declarations: &mut [Declaration]) -> Result<'a, ()> {
-		declarations.sort();
-
-		let mut group = unsafe { declarations.first().unwrap_unchecked() }
-			.descriptor
-			.group();
-
-		for Declaration { descriptor, line } in declarations {
-			if descriptor.group() != group {
-				group = descriptor.group();
-				self.context.flush()?;
-			}
-
-			self.context.write_all(line)?;
-			self.context.flush()?;
 		}
 
 		Ok(())

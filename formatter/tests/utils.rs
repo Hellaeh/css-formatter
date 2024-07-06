@@ -1,3 +1,5 @@
+/// FIXME: Move this to utils crate
+#[allow(dead_code)]
 pub fn format(css: &str) -> Result<(String, String), (String, String)> {
 	use std::io::Write;
 	use std::process::*;

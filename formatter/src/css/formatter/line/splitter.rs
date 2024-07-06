@@ -91,7 +91,7 @@ impl Splitter {
 	}
 
 	#[inline]
-	fn remove_soft_splits(buf: &[u8], mut splits: SplitTree) {
+	fn remove_soft_splits(buf: &[u8], splits: SplitTree) {
 		macro_rules! iter_filter {
 			($kind: pat) => {
 				splits

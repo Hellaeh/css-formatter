@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
 
 			// Whitespace token
 			ASCII::SPACE | ASCII::TAB | ASCII::LF | ASCII::CR => {
-				self.skip_whitespace(bytes);
+				self.skip_whitespace();
 				Token::Whitespace
 			}
 
@@ -300,7 +300,7 @@ impl<'a> Parser<'a> {
 	}
 
 	#[inline]
-	fn skip_whitespace(&mut self, bytes: &'a [u8]) {
+	fn skip_whitespace(&mut self) {
 		// Step over once
 		self.advance(1);
 

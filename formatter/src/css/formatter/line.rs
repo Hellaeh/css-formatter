@@ -65,4 +65,16 @@ impl std::ops::DerefMut for Line {
 	}
 }
 
+impl std::io::Write for Line {
+	#[inline(always)]
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.buf.write(buf)
+	}
+
+	#[inline(always)]
+	fn flush(&mut self) -> std::io::Result<()> {
+		self.buf.flush()
+	}
+}
+
 mod splitter;
