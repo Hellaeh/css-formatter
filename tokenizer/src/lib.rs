@@ -1,355 +1,375 @@
-// // use crate::utils::Helper;
-
-// use consts::ASCII;
-
-// use token::Token;
-
-// #[derive(Debug)]
-// #[allow(clippy::upper_case_acronyms)]
-// pub enum Error {
-// 	BadComment,
-// 	BadString,
-// 	EOF,
-// 	NonASCII,
-// }
-
-// /// An opinionated parser for opinionated CSS formatter
-// #[derive(Debug)]
-// pub struct Tokenizer<'a> {
-// 	buf: &'a [u8],
-// 	// Current position (index)
-// 	pos: usize,
-// }
-
-// pub type Result<T> = std::result::Result<T, Error>;
-
-// impl<'a> Tokenizer<'a> {
-// 	#[inline(always)]
-// 	pub fn advance(&mut self, amount: usize) {
-// 		self.pos += amount
-// 	}
-
-// 	#[inline(always)]
-// 	pub fn is_eof(&self) -> bool {
-// 		self.pos() >= self.buf.len()
-// 	}
-
-// 	#[inline]
-// 	pub fn new(input: &'a [u8]) -> Self {
-// 		Self { buf: input, pos: 0 }
-// 	}
-
-// 	#[inline(always)]
-// 	fn get_current_byte(&self) -> u8 {
-// 		debug_assert!(!self.is_eof());
-// 		unsafe { *self.buf.get_unchecked(self.pos()) }
-// 	}
-
-// 	#[inline(always)]
-// 	fn peek_next_byte(&self) -> Option<u8> {
-// 		self.buf.get(self.pos() + 1).copied()
-// 	}
-
-// 	#[inline]
-// 	pub fn next(&mut self) -> Result<Token<'a>> {
-// 		let bytes = self.buf;
-
-// 		if self.is_eof() {
-// 			return Err(Error::EOF);
-// 		}
-
-// 		let cur = self.get_current_byte();
-// 		let next = self.peek_next_byte();
-
-// 		if !cur.is_ascii() {
-// 			return Err(Error::NonASCII);
-// 		}
-
-// 		let token = match cur {
-// 			// A comment or delim token
-// 			ASCII::SLASH => {
-// 				if next == Some(ASCII::ASTERISK) {
-// 					self.parse_comment(bytes)?
-// 				} else {
-// 					self.advance(1);
-// 					Token::Delim(ASCII::SLASH)
-// 				}
-// 			}
-
-// 			// Whitespace token
-// 			ASCII::SPACE | ASCII::TAB | ASCII::LF | ASCII::CR => {
-// 				self.skip_whitespace(bytes);
-// 				Token::Whitespace
-// 			}
-
-// 			// A hash or delim token
-// 			ASCII::HASH => {
-// 				if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | ASCII::UNDERSCORE)) {
-// 					self.parse_name(bytes)
-// 				} else {
-// 					self.advance(1);
-// 					Token::Delim(ASCII::HASH)
-// 				}
-// 			}
-
-// 			// String token
-// 			quote_type @ (ASCII::SINGLE_QUOTE | ASCII::DOUBLE_QUOTE) => {
-// 				// Step over opening quote
-// 				self.advance(1);
-// 				self.parse_string(bytes, quote_type)?
-// 			}
-
-// 			// Number token
-// 			b'0'..=b'9' => self.parse_number(bytes)?,
-
-// 			// Number or delim token
-// 			#[allow(unused_must_use)]
-// 			delim @ (ASCII::FULL_STOP | ASCII::PLUS) => {
-// 				if next.is_digit()
-// 					|| (next == Some(ASCII::FULL_STOP)
-// 						&& matches!(bytes.get(self.pos() + 2), Some(x) if x.is_digit()))
-// 				{
-// 					self.parse_number(bytes)?
-// 				} else {
-// 					self.advance(1);
-// 					Token::Delim(delim)
-// 				}
-// 			}
-
-// 			// Number or ident or delim token
-// 			#[allow(unused_must_use)]
-// 			ASCII::DASH => {
-// 				if next.is_digit()
-// 					|| (next == Some(ASCII::FULL_STOP)
-// 						&& matches!(bytes.get(self.pos() + 2), Some(x) if x.is_digit()))
-// 				{
-// 					self.parse_number(bytes)?
-// 				} else if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | ASCII::UNDERSCORE | ASCII::DASH))
-// 				{
-// 					self.parse_name(bytes)
-// 				} else {
-// 					self.advance(1);
-// 					Token::Delim(ASCII::DASH)
-// 				}
-// 			}
-
-// 			// AtRule or Delim token
-// 			ASCII::AT => {
-// 				if matches!(next, Some(x) if matches!(x, b'a'..=b'z' | b'A'..=b'Z' | ASCII::UNDERSCORE)) {
-// 					self.parse_name(bytes)
-// 				} else {
-// 					self.advance(1);
-// 					Token::Delim(ASCII::AT)
-// 				}
-// 			}
-
-// 			// Ident token
-// 			b'a'..=b'z' | b'A'..=b'Z' | ASCII::UNDERSCORE => self.parse_name(bytes),
-
-// 			_ => {
-// 				self.advance(1);
-
-// 				match cur {
-// 					b'\0' => self.next()?,
-// 					ASCII::PAREN_OPEN => Token::BracketRoundOpen,
-// 					ASCII::PAREN_CLOSE => Token::BracketRoundClose,
-// 					ASCII::SQUARED_OPEN => Token::BracketSquareOpen,
-// 					ASCII::SQUARED_CLOSE => Token::BracketSquareClose,
-// 					ASCII::CURLY_OPEN => Token::BracketCurlyOpen,
-// 					ASCII::CURLY_CLOSE => Token::BracketCurlyClose,
-// 					ASCII::COMMA => Token::Comma,
-// 					ASCII::COLON => Token::Colon,
-// 					ASCII::SEMICOLON => Token::Semicolon,
-
-// 					// Anything else is a delim
-// 					delim => Token::Delim(delim),
-// 				}
-// 			}
-// 		};
-
-// 		Ok(token)
-// 	}
-
-// 	#[inline]
-// 	fn parse_comment(&mut self, bytes: &'a [u8]) -> Result<Token<'a>> {
-// 		// Step over comment opening seq `/*`
-// 		self.advance(2);
-
-// 		let start = self.pos();
-
-// 		while !self.is_eof() {
-// 			let cur = self.get_current_byte();
-
-// 			if cur == ASCII::ASTERISK {
-// 				let Some(next) = bytes.get(self.pos() + 1).copied() else {
-// 					// EOF
-// 					break;
-// 				};
-
-// 				if next == ASCII::SLASH {
-// 					let res = Token::Comment(&bytes[start..self.pos()]);
-// 					// Step over comment closing seq `*/`
-// 					self.advance(2);
-
-// 					return Ok(res);
-// 				}
-// 			}
-
-// 			self.advance(1);
-// 		}
-
-// 		Err(Error::BadComment)
-// 	}
-
-// 	#[inline]
-// 	fn parse_name(&mut self, bytes: &'a [u8]) -> Token<'a> {
-// 		let opening = bytes[self.pos()];
-// 		let start = self.pos();
-
-// 		self.advance(1);
-
-// 		let mut is_function = false;
-
-// 		while !self.is_eof() {
-// 			let cur = self.get_current_byte();
-
-// 			if !matches!(cur, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | ASCII::DASH | ASCII::UNDERSCORE) {
-// 				if cur == ASCII::PAREN_OPEN && opening != ASCII::AT {
-// 					is_function = true;
-// 					// Consume opening paren
-// 					self.advance(1);
-// 				}
-
-// 				break;
-// 			}
-
-// 			self.advance(1);
-// 		}
-
-// 		let bytes = &bytes[start..self.pos()];
-
-// 		let token = match opening {
-// 			ASCII::AT => Token::AtRule(bytes),
-// 			ASCII::HASH => Token::Hash(bytes),
-// 			_ if is_function => Token::Function(bytes),
-// 			_ => Token::Ident(bytes),
-// 		};
-
-// 		token
-// 	}
-
-// 	#[inline]
-// 	fn parse_number(&mut self, bytes: &'a [u8]) -> Result<Token<'a>> {
-// 		let start = self.pos();
-
-// 		let mut cur = self.get_current_byte();
-
-// 		if matches!(cur, ASCII::DASH | ASCII::PLUS | ASCII::FULL_STOP) {
-// 			self.advance(1);
-// 		}
-
-// 		while !self.is_eof() {
-// 			cur = self.get_current_byte();
-
-// 			// Matches (we don't care about validity): 1px, 1rem, 100%, +110e10, -110, +++++++++1, .1..1
-// 			if !matches!(cur,  ASCII::PERCENTAGE| ASCII::PLUS | ASCII::DASH | ASCII::FULL_STOP | b'A'..=b'Z'| b'a'..=b'z' |b'0'..=b'9' )
-// 			{
-// 				break;
-// 			}
-
-// 			self.advance(1);
-// 		}
-
-// 		let bytes = &bytes[start..self.pos()];
-
-// 		Ok(Token::Number(bytes))
-// 	}
-
-// 	#[inline]
-// 	fn parse_string(&mut self, bytes: &'a [u8], quote: u8) -> Result<Token<'a>> {
-// 		let start = self.pos();
-
-// 		while !self.is_eof() {
-// 			let cur = self.get_current_byte();
-
-// 			if cur == quote {
-// 				let token = Token::String(&bytes[start..self.pos()]);
-// 				self.advance(1);
-// 				return Ok(token);
-// 			}
-
-// 			if matches!(cur, ASCII::LF | ASCII::CR) {
-// 				self.advance(1);
-// 				// Unescaped newline - parse error
-// 				break;
-// 			}
-
-// 			if cur == ASCII::BACKSLASH {
-// 				// Ignore any escape seq
-// 				self.advance(1);
-// 			}
-
-// 			self.advance(1);
-// 		}
-
-// 		Err(Error::BadString)
-// 	}
-
-// 	#[inline(always)]
-// 	pub fn pos(&self) -> usize {
-// 		self.pos
-// 	}
-
-// 	#[inline]
-// 	fn skip_whitespace(&mut self, bytes: &'a [u8]) {
-// 		// Step over once
-// 		self.advance(1);
-
-// 		// Step over until non whitespace
-// 		while !self.is_eof() {
-// 			let cur = self.get_current_byte();
-
-// 			if !matches!(cur, ASCII::LF | ASCII::CR | ASCII::TAB | ASCII::SPACE) {
-// 				break;
-// 			}
-
-// 			self.advance(1);
-// 		}
-// 	}
-
-// 	// #[inline]
-// }
-
-// impl<'a> std::fmt::Debug for Token<'a> {
-// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-// 		use std::str::from_utf8_unchecked as str;
-
-// 		unsafe {
-// 			match self {
-// 				Token::Comment(bytes) => write!(f, "Comment(\"{}\")", str(bytes)),
-// 				Token::Ident(bytes) => write!(f, "Ident(\"{}\")", str(bytes)),
-// 				Token::Function(bytes) => write!(f, "Function(\"{}\")", str(bytes)),
-// 				Token::AtRule(bytes) => write!(f, "AtRule(\"{}\")", str(bytes)),
-// 				Token::Hash(bytes) => write!(f, "Hash(\"{}\")", str(bytes)),
-// 				Token::String(bytes) => write!(f, "String(\"{}\")", str(bytes)),
-// 				Token::Number(bytes) => write!(f, "Number(\"{}\")", str(bytes)),
-// 				Token::Delim(d) => write!(f, "Delim({})", *d as char),
-// 				Token::Whitespace => f.write_str("Whitespace"),
-// 				Token::Colon => f.write_str("Colon"),
-// 				Token::Semicolon => f.write_str("Semicolon"),
-// 				Token::Comma => f.write_str("Comma"),
-// 				Token::BracketRoundOpen => f.write_str("BracketRoundOpen"),
-// 				Token::BracketRoundClose => f.write_str("BracketRoundClose"),
-// 				Token::BracketSquareOpen => f.write_str("BracketSquareOpen"),
-// 				Token::BracketSquareClose => f.write_str("BracketSquareClose"),
-// 				Token::BracketCurlyOpen => f.write_str("BracketCurlyOpen"),
-// 				Token::BracketCurlyClose => f.write_str("BracketCurlyClose"),
-// 			}
-// 		}
-// 	}
-// }
-
-// mod cache;
-// mod token;
-
-// pub use cache::Cache;
+#![feature(portable_simd)]
+#![feature(test)]
+
+pub use token::Token;
+
+use consts::ASCII;
+use simd::tokenize_comment_simd;
+use utils::ByteHelper;
+
+pub const LANE_WIDTH: usize = 16;
+pub const LANE_WIDTH_MASK: usize = LANE_WIDTH - 1;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum Error {
+	BadComment,
+	BadString,
+	EOF,
+	NonASCII,
+}
+
+macro_rules! pat {
+	// alpha
+	(A) => {
+		b'A'..=b'Z' | b'a'..=b'z'
+	};
+	// numeric
+	(N) =>  {
+		b'0'..=b'9'
+	};
+	// alphanumeric
+	(AN) => {
+		pat!(A) | pat!(N)
+	};
+}
+
+#[derive(Debug)]
+// pub struct Tokenizer<const LANE_WIDTH: usize = 16> { // this is not supported i guess?
+pub struct Tokenizer {
+	cursor: *const u8,
+	eof: *const u8, // this would be a null terminator position in C
+}
+
+pub type Result = std::result::Result<Token, Error>;
+
+// impl<const LANE_WIDTH: usize> Tokenizer<LANE_WIDTH> {
+impl Tokenizer {
+	#[inline(always)]
+	pub fn advance(&mut self, steps: usize) {
+		self.cursor = unsafe { self.cursor.add(steps) };
+	}
+
+	#[inline(always)]
+	pub fn is_eof(&self) -> bool {
+		self.cursor >= self.eof
+	}
+
+	#[inline(always)]
+	pub fn rem(&self) -> usize {
+		self.eof.addr() - self.cursor.addr()
+	}
+
+	#[inline]
+	pub fn new(input: *const [u8]) -> Self {
+		const {
+			assert!(LANE_WIDTH.is_power_of_two());
+			assert!(LANE_WIDTH >= 16);
+			assert!(LANE_WIDTH <= 64);
+		}
+
+		let ptr = input as *const u8;
+
+		assert!(
+			ptr.addr() & LANE_WIDTH_MASK == 0,
+			"pointer is not aligned to width - {}",
+			{ LANE_WIDTH }
+		);
+
+		Self {
+			cursor: ptr,
+			eof: unsafe { ptr.add(input.len()) },
+		}
+	}
+
+	#[inline(always)]
+	fn peek(&self, i: usize) -> u8 {
+		unsafe { *self.cursor.add(i) }
+	}
+
+	#[inline(always)]
+	fn try_peek(&self, i: usize) -> Option<u8> {
+		if self.rem() > i {
+			return Some(self.peek(i));
+		}
+
+		None
+	}
+
+	#[inline(always)]
+	fn current_byte(&self) -> u8 {
+		debug_assert!(!self.is_eof());
+
+		unsafe { *self.cursor }
+	}
+
+	#[inline(always)]
+	#[must_use]
+	fn try_peek_next_byte(&self) -> Option<u8> {
+		self.try_peek(1)
+	}
+
+	#[inline]
+	pub fn next_token(&mut self) -> Result {
+		if self.is_eof() {
+			return Err(Error::EOF);
+		}
+
+		let ch = self.current_byte();
+		let next_ch = self.try_peek_next_byte();
+
+		if !ch.is_ascii() {
+			return Err(Error::NonASCII);
+		}
+
+		let token = match ch {
+			// A comment or delim token
+			ASCII::SLASH => {
+				if next_ch == Some(ASCII::ASTERISK) {
+					self.tokenize_comment()?
+				} else {
+					self.advance(1);
+					Token::Delim(ASCII::SLASH)
+				}
+			}
+
+			// Whitespace token
+			ASCII::SPACE | ASCII::TAB | ASCII::LF | ASCII::CR => self.tokenize_whitespace(),
+
+			// A hash or delim token
+			ASCII::HASH => {
+				if matches!(next_ch, Some(x) if matches!(x, pat!(A) | ASCII::UNDERSCORE)) {
+					self.tokenize_name()
+				} else {
+					self.advance(1);
+					Token::Delim(ASCII::HASH)
+				}
+			}
+
+			// String token
+			ASCII::SINGLE_QUOTE | ASCII::QUOTE => self.tokenize_string()?,
+
+			// Number token
+			pat!(N) => self.tokenize_number(),
+
+			// Number or delim token
+			delim @ (ASCII::FULL_STOP | ASCII::PLUS) => {
+				if next_ch.is_digit()
+					|| (matches!(next_ch, Some(ASCII::FULL_STOP))
+						&& matches!(self.try_peek(2), Some(x) if x.is_digit()))
+				{
+					self.tokenize_number()
+				} else {
+					self.advance(1);
+					Token::Delim(delim)
+				}
+			}
+
+			// Number or ident or delim token
+			ASCII::DASH => {
+				if next_ch.is_digit()
+					|| (next_ch == Some(ASCII::FULL_STOP)
+						&& matches!(self.try_peek(2), Some(x) if x.is_digit()))
+				{
+					self.tokenize_number()
+				} else if matches!(next_ch, Some(x) if matches!(x, pat!(A) | ASCII::UNDERSCORE | ASCII::DASH))
+				{
+					self.tokenize_name()
+				} else {
+					self.advance(1);
+					Token::Delim(ASCII::DASH)
+				}
+			}
+
+			// AtRule or Delim token
+			ASCII::AT => {
+				if matches!(next_ch, Some(x) if matches!(x, pat!(A) | ASCII::UNDERSCORE)) {
+					self.tokenize_name()
+				} else {
+					self.advance(1);
+					Token::Delim(ASCII::AT)
+				}
+			}
+
+			// Ident token
+			pat!(A) | ASCII::UNDERSCORE => self.tokenize_name(),
+
+			_ => {
+				self.advance(1);
+
+				match ch {
+					// null bytes are valid in utf8
+					b'\0' => self.next_token()?,
+
+					ASCII::PAREN_OPEN => Token::BracketRoundOpen,
+					ASCII::PAREN_CLOSE => Token::BracketRoundClose,
+					ASCII::SQUARED_OPEN => Token::BracketSquareOpen,
+					ASCII::SQUARED_CLOSE => Token::BracketSquareClose,
+					ASCII::CURLY_OPEN => Token::BracketCurlyOpen,
+					ASCII::CURLY_CLOSE => Token::BracketCurlyClose,
+					ASCII::COMMA => Token::Comma,
+					ASCII::COLON => Token::Colon,
+					ASCII::SEMICOLON => Token::Semicolon,
+
+					// Anything else is a delim
+					delim => Token::Delim(delim),
+				}
+			}
+		};
+
+		Ok(token)
+	}
+
+	#[inline]
+	fn tokenize_comment(&mut self) -> Result {
+		// Step over comment opening seq `/*`
+		self.advance(2);
+
+		let token = tokenize_comment_simd(self);
+
+		// Step over comment closing seq `*/`
+		self.advance(2);
+
+		token
+	}
+
+	#[inline]
+	fn tokenize_name(&mut self) -> Token {
+		let opening = self.current_byte();
+		let ptr = self.cursor;
+
+		// first character is already processed at this point
+		self.advance(1);
+
+		let mut is_function = false;
+
+		while !self.is_eof() {
+			let ch = self.current_byte();
+
+			if !matches!(ch, pat!(AN) | ASCII::DASH | ASCII::UNDERSCORE) {
+				if ch == ASCII::PAREN_OPEN && opening != ASCII::AT {
+					is_function = true;
+					// Consume opening paren
+					self.advance(1);
+				}
+
+				break;
+			}
+
+			self.advance(1);
+		}
+
+		let variant = match opening {
+			ASCII::AT => Token::AtRule,
+			ASCII::HASH => Token::Hash,
+			_ if is_function => Token::Function,
+			_ => Token::Ident,
+		};
+
+		Token::from(variant, ptr, self.cursor)
+	}
+
+	#[inline]
+	fn tokenize_number(&mut self) -> Token {
+		let ptr = self.pos();
+		let ch = self.current_byte();
+
+		if matches!(ch, ASCII::DASH | ASCII::PLUS | ASCII::FULL_STOP) {
+			self.advance(1);
+		}
+
+		while !self.is_eof() {
+			let ch = self.current_byte();
+
+			// Matches (we don't care about validity): 1px, 1rem, 100%, +110e10, -110, +++++++++1, .1..1
+			if !matches!(
+				ch,
+				ASCII::PERCENTAGE | ASCII::PLUS | ASCII::DASH | ASCII::FULL_STOP | pat!(AN)
+			) {
+				break;
+			}
+
+			self.advance(1);
+		}
+
+		Token::from(Token::Number, ptr, self.cursor)
+	}
+
+	#[inline]
+	fn tokenize_string(&mut self) -> Result {
+		// Step over opening quote
+		self.advance(1);
+
+		let opening_quote = self.current_byte();
+		let ptr = self.cursor;
+
+		while !self.is_eof() {
+			let ch = self.current_byte();
+
+			if ch == opening_quote {
+				let token = Token::from(Token::String, ptr, self.cursor);
+				self.advance(1);
+				return Ok(token);
+			}
+
+			if matches!(ch, ASCII::LF | ASCII::CR) {
+				self.advance(1);
+				// Unescaped newline - parse error
+				break;
+			}
+
+			if ch == ASCII::BACKSLASH {
+				// Ignore any escape seq
+				self.advance(1);
+			}
+
+			self.advance(1);
+		}
+
+		Err(Error::BadString)
+	}
+
+	#[inline(always)]
+	pub fn pos(&self) -> *const u8 {
+		self.cursor
+	}
+
+	#[inline]
+	fn tokenize_whitespace(&mut self) -> Token {
+		let mut is_newline = false;
+
+		while !self.is_eof() {
+			let ch = self.current_byte();
+
+			match ch {
+				ASCII::LF | ASCII::CR => is_newline = true,
+				ASCII::TAB | ASCII::SPACE => {}
+				_ => break,
+			}
+
+			self.advance(1);
+		}
+
+		Token::Whitespace(is_newline)
+	}
+}
+
+impl Iterator for Tokenizer {
+	type Item = Result;
+
+	#[inline]
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.next_token() {
+			ok @ Ok(_) => Some(ok),
+			err @ Err(inner) => match inner {
+				Error::EOF => None,
+				_ => Some(err),
+			},
+		}
+	}
+}
+
+mod simd;
+mod span;
+mod token;
+pub mod utils;
